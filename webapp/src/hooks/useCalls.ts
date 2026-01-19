@@ -1,5 +1,6 @@
 import type {Store, Action} from 'redux';
 
+import {getBusinessAccounts} from '../services/meetingUrlService';
 import type {GlobalState, CallData, WebSocketEvent, WindowWithDaakia} from '../types';
 
 // Call state management
@@ -7,47 +8,183 @@ let activeCall: CallData | null = null;
 let ringingTimeout: NodeJS.Timeout | null = null;
 const RING_LENGTH = 30000; // 30 seconds
 
-// Utility functions
-function getCookie(name: string): string | null {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) {
-        return parts.pop()?.split(';').shift() || null;
+// Helper function to normalize strings for comparison
+function normalizeString(str: string | null | undefined): string {
+    if (!str) {
+        return '';
     }
-    return null;
+    return str.trim().toLowerCase();
+}
+
+// Helper function to match business account (same logic as meetingUrlService)
+function matchBusinessAccountWithTeam(
+    businessAccounts: Array<{id: number; account: string}>,
+    teamName: string,
+): {isCorporateAC: number; businessAccountID: number | null} {
+    const normalizedTeamName = normalizeString(teamName);
+
+    if (!normalizedTeamName || businessAccounts.length === 0) {
+        return {
+            isCorporateAC: 0,
+            businessAccountID: null,
+        };
+    }
+
+    // Check for exact match first
+    for (const account of businessAccounts) {
+        const normalizedAccountName = normalizeString(account.account);
+        if (normalizedAccountName === normalizedTeamName) {
+            if (normalizedAccountName === 'personal account') {
+                return {isCorporateAC: 0, businessAccountID: null};
+            }
+            return {isCorporateAC: 1, businessAccountID: account.id};
+        }
+    }
+
+    // Check for partial match
+    for (const account of businessAccounts) {
+        const normalizedAccountName = normalizeString(account.account);
+        if (
+            normalizedTeamName.includes(normalizedAccountName) ||
+            normalizedAccountName.includes(normalizedTeamName)
+        ) {
+            if (normalizedAccountName === 'personal account') {
+                return {isCorporateAC: 0, businessAccountID: null};
+            }
+            return {isCorporateAC: 1, businessAccountID: account.id};
+        }
+    }
+
+    return {isCorporateAC: 0, businessAccountID: null};
 }
 
 // Main call functions
-export function startCall(channelId: string) {
-    const csrfToken = getCookie('MMCSRF');
+export async function startCall(channelId: string, teamName?: string) {
+    try {
+        // Dispatch loading state
+        window.dispatchEvent(new CustomEvent('daakia-call-loading', {
+            detail: {channelId, loading: true},
+        }));
 
-    fetch('/plugins/com.daakia.calls/api/v1/calls/start', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken || '',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-        body: JSON.stringify({channel_id: channelId}),
-        credentials: 'include',
-    }).then((response) => {
-        if (!response.ok) {
-            // eslint-disable-next-line no-console
-            console.error('Failed to start call');
+        // Determine business account info (same logic as getPersonalMeetingRoomUrl)
+        let isCorporateAC = 0;
+        let businessAccountID: number | null = null;
+
+        if (teamName) {
+            const businessAccountsResponse = await getBusinessAccounts();
+            if (businessAccountsResponse && businessAccountsResponse.success === 1) {
+                const match = matchBusinessAccountWithTeam(
+                    businessAccountsResponse.data,
+                    teamName,
+                );
+                isCorporateAC = match.isCorporateAC;
+                businessAccountID = match.businessAccountID;
+            }
         }
-        return response.json();
-    }).then((data) => {
-        // Call started successfully
-        return data;
-    }).catch((error) => {
+
+        // Build headers with CSRF token
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+
+        const cookies = document.cookie.split(';');
+        let csrfToken = '';
+        for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'MMCSRF') {
+                csrfToken = decodeURIComponent(value);
+                break;
+            }
+        }
+        if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken;
+        }
+
+        // Get meeting URL from backend (but don't create post yet)
+        const queryParams = new URLSearchParams();
+        queryParams.append('is_corporate_ac', isCorporateAC.toString());
+        if (businessAccountID !== null) {
+            queryParams.append('business_account_id', businessAccountID.toString());
+        }
+
+        const response = await fetch(
+            `${window.location.origin}/plugins/com.daakia.calls/api/v1/meeting/personal-room-url?${queryParams.toString()}`,
+            {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            },
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            // eslint-disable-next-line no-console
+            console.error('Failed to get meeting URL:', errorText);
+
+            // Clear loading state
+            window.dispatchEvent(new CustomEvent('daakia-call-loading', {
+                detail: {channelId, loading: false},
+            }));
+            return;
+        }
+
+        const result = await response.json();
+
+        // Validate response
+        if (result.success !== 1 || !result.data?.room_uid || !result.data?.frontend_url) {
+            // eslint-disable-next-line no-console
+            console.error('Invalid response from meeting URL API:', result);
+
+            // Clear loading state
+            window.dispatchEvent(new CustomEvent('daakia-call-loading', {
+                detail: {channelId, loading: false},
+            }));
+            return;
+        }
+
+        // Decode room_uid from base64
+        const roomUid = atob(result.data.room_uid);
+        const encodedRoomUid = btoa(roomUid);
+        const meetingUrl = `${result.data.frontend_url}/v1/meeting/${encodedRoomUid}`;
+
+        // Clear loading state
+        window.dispatchEvent(new CustomEvent('daakia-call-loading', {
+            detail: {channelId, loading: false},
+        }));
+
+        // Open widget with meeting URL and channel info
+        // Post will be created when VIDEO_CONFERENCE page is reached
+        window.dispatchEvent(new CustomEvent('daakia-widget-open', {
+            detail: {
+                meetingUrl,
+                channelId, // For creating post when VIDEO_CONFERENCE is reached
+                roomUid: encodedRoomUid, // For creating post
+            },
+        }));
+    } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error starting call:', error);
-    });
+
+        // Clear loading state on error
+        window.dispatchEvent(new CustomEvent('daakia-call-loading', {
+            detail: {channelId, loading: false},
+        }));
+    }
 }
 
 export function handleCallStarted(event: WebSocketEvent, store: Store<GlobalState, Action>) {
     const currentUserId = store.getState().entities.users.currentUserId;
     const callData = event.data as CallData;
+
+    // Notify channel header button that call started
+    window.dispatchEvent(new CustomEvent('daakia-call-started', {
+        detail: {
+            channel_id: callData.channel_id,
+            call_id: callData.call_id,
+        },
+    }));
 
     // Don't show ringing UI for the caller
     if (callData.caller_id === currentUserId) {
@@ -61,6 +198,7 @@ export function handleCallStarted(event: WebSocketEvent, store: Store<GlobalStat
         channelId: callData.channel_id,
         callerName: callData.caller_name,
         callerAvatarUrl: callData.caller_avatar_url,
+        meetingUrl: callData.meeting_url,
         timestamp: callData.timestamp,
     };
 
@@ -77,7 +215,18 @@ export function handleCallStarted(event: WebSocketEvent, store: Store<GlobalStat
 }
 
 export function handleCallEnded(event: WebSocketEvent) {
-    const callId = (event.data as {call_id: string}).call_id;
+    const eventData = event.data as {call_id: string; channel_id?: string};
+    const callId = eventData.call_id;
+
+    // Notify channel header button that call ended
+    if (eventData.channel_id) {
+        window.dispatchEvent(new CustomEvent('daakia-call-ended', {
+            detail: {
+                channel_id: eventData.channel_id,
+                call_id: callId,
+            },
+        }));
+    }
 
     if (activeCall && activeCall.call_id === callId) {
         clearIncomingCall();

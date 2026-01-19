@@ -7,6 +7,7 @@ interface IncomingCallData {
     channelId: string;
     callerName: string;
     callerAvatarUrl: string;
+    meetingUrl?: string;
     timestamp: number;
 }
 
@@ -48,14 +49,26 @@ const IncomingCallContainer = () => {
             (window as any).daakiaStopRinging();
         }
 
+        // Get meeting URL before clearing call state
+        const meetingUrl = incomingCall.meetingUrl;
+
         // Clear call state
         (window as any).daakiaIncomingCall = null;
 
         // Force re-render and notify components
         window.dispatchEvent(new Event('daakia-call-answered'));
 
-        // TODO: Implement actual call joining logic
-        // This would open the call interface or navigate to call screen
+        // Open widget with meeting URL to join the call
+        if (meetingUrl) {
+            window.dispatchEvent(new CustomEvent('daakia-widget-open', {
+                detail: {
+                    meetingUrl,
+                },
+            }));
+        } else {
+            // eslint-disable-next-line no-console
+            console.error('[IncomingCallContainer] No meeting URL in incoming call data');
+        }
     };
 
     const handleDecline = () => {

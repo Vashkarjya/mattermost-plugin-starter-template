@@ -20,6 +20,8 @@ import (
 type configuration struct {
 	// DaakiaFrontendURL is the URL of the Daakia frontend service
 	DaakiaFrontendURL string
+	// DaakiaBackendURL is the URL of the Daakia backend API
+	DaakiaBackendURL string
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if

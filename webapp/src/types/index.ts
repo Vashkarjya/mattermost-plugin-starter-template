@@ -17,6 +17,7 @@ export interface CallData {
     caller_id: string;
     caller_name: string;
     caller_avatar_url: string;
+    meeting_url?: string;
     timestamp: number;
 }
 
@@ -30,6 +31,7 @@ export interface WindowWithDaakia extends Window {
         channelId: string;
         callerName: string;
         callerAvatarUrl: string;
+        meetingUrl?: string;
         timestamp: number;
     } | null;
     daakiaStopRinging?: () => void;

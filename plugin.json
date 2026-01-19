@@ -29,6 +29,14 @@
                 "help_text": "URL of the Daakia frontend service (e.g., http://localhost:3001)",
                 "placeholder": "http://localhost:3001",
                 "default": "http://localhost:3001"
+            },
+            {
+                "key": "DaakiaBackendURL",
+                "display_name": "Daakia Backend API URL",
+                "type": "text",
+                "help_text": "URL of the Daakia backend API service (e.g., http://localhost:4000)",
+                "placeholder": "http://localhost:4000",
+                "default": "http://localhost:4000"
             }
         ]
     }

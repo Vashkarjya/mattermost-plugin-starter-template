@@ -18,8 +18,11 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 	apiRouter := router.PathPrefix("/api/v1").Subrouter()
 
 	apiRouter.HandleFunc("/hello", p.HelloWorld).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/calls/start", p.handleStartCall).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/calls/end", p.handleEndCall).Methods(http.MethodPost)
+
+	// Meeting room API endpoints
+	apiRouter.HandleFunc("/meeting/personal-room-url", p.handleGetPersonalRoomURL).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/meeting/create-post", p.handleCreateCallPost).Methods(http.MethodPost)
 
 	router.ServeHTTP(w, r)
 }

@@ -38,7 +38,7 @@ const CallPost: React.FC<{post: Post}> = ({post}) => {
                     </div>
                     <div className='daakia-call-info'>
                         <span className='daakia-call-title'>
-                            {post.message || 'Call started'}
+                            {post.message ? post.message : 'Call started'}
                         </span>
                         <button
                             className='daakia-call-join-btn'
