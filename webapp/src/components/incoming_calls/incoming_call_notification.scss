@@ -1,0 +1,253 @@
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
+.daakia-incoming-call-banner {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 100000;
+    width: 280px;
+    height: 280px;
+    border-radius: 16px;
+    background: rgba(var(--center-channel-bg-rgb), 0.75);
+    color: var(--center-channel-color);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    cursor: pointer;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+    animation: slideUp 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    // Glass gradient overlay
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 50%;
+        background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.1) 0%,
+            rgba(255, 255, 255, 0.05) 50%,
+            transparent 100%
+        );
+        pointer-events: none;
+        border-radius: 16px 16px 0 0;
+    }
+
+    &__inner {
+        width: 100%;
+        height: 100%;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        border-radius: 16px;
+        position: relative;
+        z-index: 1;
+        isolation: isolate;
+    }
+
+    &__top {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        flex: 1;
+    }
+
+    &__avatar-container {
+        position: relative;
+        width: 80px;
+        height: 80px;
+        z-index: 2;
+        isolation: isolate;
+    }
+
+    &__avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        position: relative;
+        z-index: 2;
+        filter: none;
+        -webkit-filter: none;
+    }
+
+    &__avatar-placeholder {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--center-channel-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        font-weight: 600;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        position: relative;
+        z-index: 2;
+        filter: none;
+        -webkit-filter: none;
+    }
+
+    &__ring-indicator {
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        right: -4px;
+        bottom: -4px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        animation: ringPulse 2s infinite;
+        pointer-events: none;
+        z-index: 1;
+        filter: none;
+        -webkit-filter: none;
+    }
+
+    &__info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        width: 100%;
+        gap: 8px;
+        z-index: 2;
+        isolation: isolate;
+    }
+
+    &__call-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: rgba(var(--center-channel-color-rgb), 0.64);
+        font-size: 11px;
+        line-height: 16px;
+        font-weight: 400;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+
+        i {
+            font-size: 12px;
+        }
+    }
+
+    &__caller-name {
+        color: var(--center-channel-color);
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 20px;
+        margin-top: 4px;
+        word-break: break-word;
+    }
+
+    &__bottom {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        margin-top: 8px;
+    }
+
+    &__button {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 50%;
+        font-size: 0;
+        cursor: pointer;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+        color: var(--center-channel-color);
+        padding: 0;
+
+        i {
+            font-size: 20px;
+        }
+
+        span {
+            display: none;
+        }
+
+        &--ignore {
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(var(--center-channel-color-rgb), 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+            &:hover {
+                background: rgba(255, 255, 255, 0.25);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            }
+
+            &:active {
+                transform: scale(0.95);
+                background: rgba(255, 255, 255, 0.2);
+            }
+        }
+
+        &--join {
+            background: rgba(var(--button-bg-rgb), 0.9);
+            color: var(--button-color);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+
+            &:hover {
+                background: rgba(var(--button-bg-rgb), 1);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            }
+
+            &:active {
+                transform: scale(0.95);
+                background: rgba(var(--button-bg-rgb), 0.85);
+            }
+        }
+    }
+}
+
+@keyframes ringPulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

@@ -57,6 +57,8 @@ func (p *Plugin) OnActivate() error {
 
 	p.backgroundJob = job
 
+	p.API.LogInfo("Daakia Calls plugin activated successfully")
+
 	return nil
 }
 
