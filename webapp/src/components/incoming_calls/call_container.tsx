@@ -58,9 +58,17 @@ const IncomingCallContainer = () => {
         // Force re-render and notify components
         window.dispatchEvent(new Event('daakia-call-answered'));
 
-        // Open meeting URL in new window
+        // Open meeting URL in new window and show widget
         if (meetingUrl) {
-            window.open(meetingUrl, '_blank');
+            const meetingWindow = window.open(meetingUrl, '_blank');
+            
+            // Show widget when answering call
+            window.dispatchEvent(new CustomEvent('daakia-widget-open', {
+                detail: {
+                    meetingUrl,
+                    meetingWindow,
+                },
+            }));
         } else {
             // eslint-disable-next-line no-console
             console.error('No meeting URL available for incoming call');

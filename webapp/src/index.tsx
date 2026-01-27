@@ -1,6 +1,7 @@
 import type {Store, Action} from 'redux';
 
 import CallPost from './components/call_post';
+import {CallWidgetContainer} from './components/call_widget';
 import ChannelHeaderButton from './components/channel_header';
 import IncomingCallContainer from './components/incoming_calls/call_container';
 import {startCall, handleCallStarted, handleCallEnded} from './hooks/useCalls';
@@ -29,13 +30,16 @@ export default class Plugin {
                         console.error('Team name not found - cannot determine business account');
                         return;
                     }
-                    startCall(channel.id, teamName);
+                    startCall(channel.id);
                 }
             },
         );
 
         // Register incoming call notification as global component
         registry.registerGlobalComponent(IncomingCallContainer);
+
+        // Register call widget as global component
+        registry.registerGlobalComponent(CallWidgetContainer);
 
         // Register custom post type component for call posts
         registry.registerPostTypeComponent('custom_daakia_call', CallPost);

@@ -9,7 +9,7 @@ let ringingTimeout: NodeJS.Timeout | null = null;
 const RING_LENGTH = 30000; // 30 seconds
 
 // Main call functions
-export async function startCall(channelId: string, teamName?: string) {
+export async function startCall(channelId: string) {
     try {
         // Dispatch loading state
         window.dispatchEvent(new CustomEvent('daakia-call-loading', {
@@ -18,11 +18,11 @@ export async function startCall(channelId: string, teamName?: string) {
 
         // Get meeting URL from backend
         const meetingResult = await getPersonalMeetingRoomUrl();
-        
+
         if (!meetingResult.success || !meetingResult.meetingUrl) {
             // eslint-disable-next-line no-console
             console.error('Failed to get meeting URL:', meetingResult.error);
-            
+
             // Clear loading state
             window.dispatchEvent(new CustomEvent('daakia-call-loading', {
                 detail: {channelId, loading: false},
@@ -41,12 +41,20 @@ export async function startCall(channelId: string, teamName?: string) {
             detail: {channelId, loading: false},
         }));
 
-        if (!result.success) {
+        if (result.success) {
+            // Open meeting URL for the caller and show widget
+            const meetingWindow = window.open(meetingResult.meetingUrl, '_blank');
+
+            // Show widget with meeting info
+            window.dispatchEvent(new CustomEvent('daakia-widget-open', {
+                detail: {
+                    meetingUrl: meetingResult.meetingUrl,
+                    meetingWindow,
+                },
+            }));
+        } else {
             // eslint-disable-next-line no-console
             console.error('Failed to start call:', result.error);
-        } else {
-            // Open meeting URL for the caller
-            window.open(meetingResult.meetingUrl, '_blank');
         }
     } catch (error) {
         // eslint-disable-next-line no-console
@@ -146,7 +154,7 @@ export async function endActiveCall(callId: string, channelId: string) {
 }
 
 // Ring tone management using Mattermost's notificationSounds API
-let currentRingTone: string = 'Calm'; // Default to Calm like Mattermost Calls
+const currentRingTone: string = 'Calm'; // Default to Calm like Mattermost Calls
 
 export function playRingSound() {
     // Use Mattermost's built-in notificationSounds API

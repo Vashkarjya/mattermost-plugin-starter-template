@@ -22,6 +22,13 @@ export interface GetMeetingUrlResult {
  * Gets personal meeting room URL from backend
  */
 export async function getPersonalMeetingRoomUrl(): Promise<GetMeetingUrlResult> {
+    // Return hardcoded test URL for testing
+    return {
+        success: true,
+        meetingUrl: 'http://localhost:3000/v1/meeting/Nzk5NTY2NTk0Mjk2',
+    };
+
+    /* Original API call - commented out for testing
     try {
         const response = await fetch(
             `${window.location.origin}/plugins/com.daakia.calls/api/v1/meeting/personal-room-url?is_corporate_ac=0`,
@@ -66,6 +73,7 @@ export async function getPersonalMeetingRoomUrl(): Promise<GetMeetingUrlResult> 
             error: error instanceof Error ? error.message : 'Failed to get meeting URL',
         };
     }
+    */
 }
 
 export interface CreateCallPostParams {
