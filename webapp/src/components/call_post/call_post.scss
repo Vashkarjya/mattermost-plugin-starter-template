@@ -28,9 +28,8 @@
 .daakia-call-info {
     flex: 1;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    flex-direction: column;
+    gap: 8px;
     min-width: 0;
 }
 
@@ -42,7 +41,14 @@
     min-width: 0;
 }
 
-.daakia-call-join-btn {
+.daakia-call-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.daakia-call-join-btn,
+.daakia-call-end-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -89,7 +95,8 @@
         color: var(--button-color);
     }
 
-    .daakia-call-join-btn {
+    .daakia-call-join-btn,
+    .daakia-call-end-btn {
         background: rgba(255, 255, 255, 0.25);
         color: var(--button-color);
         border: 1px solid rgba(255, 255, 255, 0.3);

@@ -44,7 +44,7 @@ const IncomingCallContainer = () => {
     }
 
     const handleAnswer = () => {
-        // Stop ringing sound immediately (like Mattermost Calls)
+        // Stop ringing sound immediately
         if ((window as any).daakiaStopRinging) {
             (window as any).daakiaStopRinging();
         }
@@ -58,21 +58,17 @@ const IncomingCallContainer = () => {
         // Force re-render and notify components
         window.dispatchEvent(new Event('daakia-call-answered'));
 
-        // Open widget with meeting URL to join the call
+        // Open meeting URL in new window
         if (meetingUrl) {
-            window.dispatchEvent(new CustomEvent('daakia-widget-open', {
-                detail: {
-                    meetingUrl,
-                },
-            }));
+            window.open(meetingUrl, '_blank');
         } else {
             // eslint-disable-next-line no-console
-            console.error('[IncomingCallContainer] No meeting URL in incoming call data');
+            console.error('No meeting URL available for incoming call');
         }
     };
 
     const handleDecline = () => {
-        // Stop ringing sound immediately (like Mattermost Calls)
+        // Stop ringing sound immediately
         if ((window as any).daakiaStopRinging) {
             (window as any).daakiaStopRinging();
         }

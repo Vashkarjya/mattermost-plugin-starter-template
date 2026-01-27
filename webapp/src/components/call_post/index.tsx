@@ -2,28 +2,27 @@ import React from 'react';
 
 import type {Post} from '@mattermost/types/posts';
 
+import {endActiveCall} from '../../hooks/useCalls';
+
 import './call_post.scss';
 
 const CallPost: React.FC<{post: Post}> = ({post}) => {
-    // Get meeting URL from post props (matching your Mattermost core component)
-    const meetingUrl = post.props?.meeting_url as string | undefined;
+    const callId = post.id;
+    const channelId = post.channel_id;
+    const isCallActive = post.props?.call_active as boolean;
+    const meetingUrl = post.props?.meeting_url as string;
 
-    const handleJoinCall = () => {
-        if (!meetingUrl) {
-            return;
+    const handleEndCall = async () => {
+        if (callId && channelId) {
+            await endActiveCall(callId, channelId);
         }
-
-        // Dispatch a custom event to open the PiP with this meeting URL
-        // ChannelHeader will listen for this event (matching your core behavior)
-        window.dispatchEvent(new CustomEvent('daakia-join-call', {
-            detail: {meetingUrl},
-        }));
     };
 
-    if (!meetingUrl) {
-        // Fallback: show regular post if no meeting URL
-        return <div>{post.message}</div>;
-    }
+    const handleJoinCall = () => {
+        if (meetingUrl) {
+            window.open(meetingUrl, '_blank');
+        }
+    };
 
     // Use standard post-message structure to inherit ALL modern post styling
     return (
@@ -40,13 +39,26 @@ const CallPost: React.FC<{post: Post}> = ({post}) => {
                         <span className='daakia-call-title'>
                             {post.message ? post.message : 'Call started'}
                         </span>
-                        <button
-                            className='daakia-call-join-btn'
-                            onClick={handleJoinCall}
-                        >
-                            <i className='icon icon-phone-outline'/>
-                            {'Join'}
-                        </button>
+                        <div className='daakia-call-buttons'>
+                            {meetingUrl && (
+                                <button
+                                    className='daakia-call-join-btn'
+                                    onClick={handleJoinCall}
+                                >
+                                    <i className='icon icon-phone-outline'/>
+                                    {'Join'}
+                                </button>
+                            )}
+                            {isCallActive && (
+                                <button
+                                    className='daakia-call-end-btn'
+                                    onClick={handleEndCall}
+                                >
+                                    <i className='icon icon-phone-hangup'/>
+                                    {'End Call'}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,7 +1,6 @@
 import type {Store, Action} from 'redux';
 
 import CallPost from './components/call_post';
-import {CallWidgetContainer} from './components/call_widget';
 import ChannelHeaderButton from './components/channel_header';
 import IncomingCallContainer from './components/incoming_calls/call_container';
 import {startCall, handleCallStarted, handleCallEnded} from './hooks/useCalls';
@@ -19,8 +18,7 @@ export default class Plugin {
             null,
             (channel) => {
                 if (channel.id) {
-                    // Get team name from Redux store (matching reference implementation)
-                    // Try to get current team from store state
+                    // Get team name from Redux store
                     const state = store.getState();
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const currentTeam = (state as any).entities?.teams?.teams?.[(state as any).entities?.teams?.currentTeamId];
@@ -38,9 +36,6 @@ export default class Plugin {
 
         // Register incoming call notification as global component
         registry.registerGlobalComponent(IncomingCallContainer);
-
-        // Register call widget as global component
-        registry.registerGlobalComponent(CallWidgetContainer);
 
         // Register custom post type component for call posts
         registry.registerPostTypeComponent('custom_daakia_call', CallPost);
