@@ -61,8 +61,8 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
     // Listen for messages from meeting window
     React.useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
-            // Accept messages from both localhost:3000 and konnect-staging.daakia.ai
-            if (event.origin !== 'http://localhost:3000' && event.origin !== 'https://konnect-staging.daakia.ai') {
+            // Accept messages from https://stag-web.daakia.co.in
+            if (event.origin !== 'https://stag-web.daakia.co.in') {
                 return;
             }
 
@@ -96,7 +96,7 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
             type: 'TOGGLE_MIC',
             isOn: newMicState,
             timestamp: Date.now(),
-        }, 'http://localhost:3000');
+        }, 'https://stag-web.daakia.co.in');
     }, [meetingWindow, isMicOn, isUpdatingFromRemote]);
 
     const handleCameraToggle = useCallback(() => {
@@ -113,7 +113,7 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
             type: 'TOGGLE_CAMERA',
             isOn: newCameraState,
             timestamp: Date.now(),
-        }, 'http://localhost:3000');
+        }, 'https://stag-web.daakia.co.in');
     }, [meetingWindow, isCameraOn, isUpdatingFromRemote]);
 
     const handleSendMessage = useCallback(() => {
@@ -122,7 +122,7 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                 type: 'HELLO_FROM_MATTERMOST',
                 message: 'Hello World from Mattermost Plugin!',
                 timestamp: Date.now(),
-            }, 'http://localhost:3000');
+            }, 'https://stag-web.daakia.co.in');
         }
     }, [meetingWindow]);
 
@@ -135,7 +135,7 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                 type: 'HELLO_FROM_MATTERMOST',
                 message: 'Hello World from Mattermost Plugin!',
                 timestamp: Date.now(),
-            }, 'http://localhost:3000');
+            }, 'https://stag-web.daakia.co.in');
         } else {
             window.open(meetingUrl, '_blank');
         }
