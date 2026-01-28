@@ -5,7 +5,6 @@ import SimpleCallWidget from './simple_call_widget';
 interface WidgetState {
     isOpen: boolean;
     meetingUrl?: string;
-    meetingWindow?: Window | null;
 }
 
 const CallWidgetContainer = () => {
@@ -19,7 +18,6 @@ const CallWidgetContainer = () => {
             setWidgetState({
                 isOpen: true,
                 meetingUrl: detail.meetingUrl,
-                meetingWindow: detail.meetingWindow,
             });
         };
 
@@ -27,7 +25,6 @@ const CallWidgetContainer = () => {
             setWidgetState({
                 isOpen: false,
                 meetingUrl: undefined,
-                meetingWindow: null,
             });
         };
 
@@ -35,11 +32,9 @@ const CallWidgetContainer = () => {
         const handleJoinCall = (event: CustomEvent) => {
             const {meetingUrl} = event.detail || {};
             if (meetingUrl) {
-                const meetingWindow = window.open(meetingUrl, '_blank');
                 setWidgetState({
                     isOpen: true,
                     meetingUrl,
-                    meetingWindow,
                 });
             }
         };
@@ -59,7 +54,6 @@ const CallWidgetContainer = () => {
         setWidgetState({
             isOpen: false,
             meetingUrl: undefined,
-            meetingWindow: null,
         });
         window.dispatchEvent(new Event('daakia-widget-close'));
     };
@@ -72,7 +66,6 @@ const CallWidgetContainer = () => {
         <SimpleCallWidget
             isOpen={widgetState.isOpen}
             meetingUrl={widgetState.meetingUrl}
-            meetingWindow={widgetState.meetingWindow}
             onClose={handleClose}
         />
     );

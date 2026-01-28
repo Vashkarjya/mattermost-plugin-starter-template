@@ -158,6 +158,56 @@ export async function createCallPost(
     }
 }
 
+export interface StartCallResult {
+    success: boolean;
+    meetingUrl?: string;
+    postId?: string;
+    error?: string;
+}
+
+/**
+ * Complete call initialization flow:
+ * 1. Get meeting URL
+ * 2. Create call post
+ * 3. Return data for widget
+ */
+export async function startCall(channelId: string): Promise<StartCallResult> {
+    try {
+        // Step 1: Get meeting URL
+        const meetingResult = await getPersonalMeetingRoomUrl();
+        if (!meetingResult.success || !meetingResult.meetingUrl) {
+            return {
+                success: false,
+                error: meetingResult.error || 'Failed to get meeting URL',
+            };
+        }
+
+        // Step 2: Create post in the channel for this call
+        const postResult = await createCallPost({
+            channelId,
+            meetingUrl: meetingResult.meetingUrl,
+        });
+
+        // Check if post creation failed
+        if (!postResult.success) {
+            return {
+                success: false,
+                error: postResult.error || 'Failed to create call post',
+            };
+        }
+
+        return {
+            success: true,
+            meetingUrl: meetingResult.meetingUrl,
+            postId: postResult.postId,
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to start call',
+        };
+    }
+}
 export interface EndCallParams {
     callId: string;
     channelId: string;

@@ -1,18 +1,16 @@
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useRef} from 'react';
 
 import './call_widget.scss';
 
 interface SimpleCallWidgetProps {
     isOpen: boolean;
     meetingUrl: string;
-    meetingWindow?: Window | null;
     onClose?: () => void;
 }
 
 const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
     isOpen,
     meetingUrl,
-    meetingWindow,
     onClose,
 }) => {
     const [pos, setPos] = useState({x: 80, y: 120});
@@ -22,6 +20,7 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
     const [isMicOn, setIsMicOn] = useState(false);
     const [isCameraOn, setIsCameraOn] = useState(false);
     const [isUpdatingFromRemote, setIsUpdatingFromRemote] = useState(false);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
 
     const onMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -58,7 +57,7 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
         };
     }, [dragging, onMouseMove, onMouseUp]);
 
-    // Listen for messages from meeting window
+    // Listen for messages from iframe
     React.useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             // Accept messages from https://stag-web.daakia.co.in
@@ -66,14 +65,14 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                 return;
             }
 
-            if (event.data.type === 'MIC_TOGGLE') {
+            if (event.data.type === 'MIC_TOGGLE' || event.data.type === 'MICROPHONE_STATE') {
                 setIsUpdatingFromRemote(true);
-                setIsMicOn(event.data.isOn);
+                setIsMicOn(event.data.isOn || event.data.enabled);
                 setTimeout(() => setIsUpdatingFromRemote(false), 100);
             }
-            if (event.data.type === 'CAMERA_TOGGLE') {
+            if (event.data.type === 'CAMERA_TOGGLE' || event.data.type === 'CAMERA_STATE') {
                 setIsUpdatingFromRemote(true);
-                setIsCameraOn(event.data.isOn);
+                setIsCameraOn(event.data.isOn || event.data.enabled);
                 setTimeout(() => setIsUpdatingFromRemote(false), 100);
             }
         };
@@ -82,8 +81,10 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
         return () => window.removeEventListener('message', handleMessage);
     }, []);
 
+    // No token handling here – widget only manages UI and basic messaging
+
     const handleMicToggle = useCallback(() => {
-        if (isUpdatingFromRemote || !meetingWindow || meetingWindow.closed) {
+        if (isUpdatingFromRemote) {
             return;
         }
 
@@ -92,15 +93,18 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
         // Update local state immediately
         setIsMicOn(newMicState);
 
-        meetingWindow.postMessage({
-            type: 'TOGGLE_MIC',
-            isOn: newMicState,
-            timestamp: Date.now(),
-        }, 'https://stag-web.daakia.co.in');
-    }, [meetingWindow, isMicOn, isUpdatingFromRemote]);
+        // Send message to iframe
+        if (iframeRef.current?.contentWindow) {
+            iframeRef.current.contentWindow.postMessage({
+                type: 'TOGGLE_MIC',
+                isOn: newMicState,
+                timestamp: Date.now(),
+            }, 'https://stag-web.daakia.co.in');
+        }
+    }, [isMicOn, isUpdatingFromRemote]);
 
     const handleCameraToggle = useCallback(() => {
-        if (isUpdatingFromRemote || !meetingWindow || meetingWindow.closed) {
+        if (isUpdatingFromRemote) {
             return;
         }
 
@@ -109,37 +113,25 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
         // Update local state immediately
         setIsCameraOn(newCameraState);
 
-        meetingWindow.postMessage({
-            type: 'TOGGLE_CAMERA',
-            isOn: newCameraState,
-            timestamp: Date.now(),
-        }, 'https://stag-web.daakia.co.in');
-    }, [meetingWindow, isCameraOn, isUpdatingFromRemote]);
+        // Send message to iframe
+        if (iframeRef.current?.contentWindow) {
+            iframeRef.current.contentWindow.postMessage({
+                type: 'TOGGLE_CAMERA',
+                isOn: newCameraState,
+                timestamp: Date.now(),
+            }, 'https://stag-web.daakia.co.in');
+        }
+    }, [isCameraOn, isUpdatingFromRemote]);
 
     const handleSendMessage = useCallback(() => {
-        if (meetingWindow && !meetingWindow.closed) {
-            meetingWindow.postMessage({
+        if (iframeRef.current?.contentWindow) {
+            iframeRef.current.contentWindow.postMessage({
                 type: 'HELLO_FROM_MATTERMOST',
                 message: 'Hello World from Mattermost Plugin!',
                 timestamp: Date.now(),
             }, 'https://stag-web.daakia.co.in');
         }
-    }, [meetingWindow]);
-
-    const handleGoToMeeting = useCallback(() => {
-        if (meetingWindow && !meetingWindow.closed) {
-            meetingWindow.focus();
-
-            // Send hello world message to meeting window
-            meetingWindow.postMessage({
-                type: 'HELLO_FROM_MATTERMOST',
-                message: 'Hello World from Mattermost Plugin!',
-                timestamp: Date.now(),
-            }, 'https://stag-web.daakia.co.in');
-        } else {
-            window.open(meetingUrl, '_blank');
-        }
-    }, [meetingUrl, meetingWindow]);
+    }, []);
 
     const handleClose = useCallback(() => {
         setIsExpanded(false);
@@ -147,6 +139,14 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
             onClose();
         }
     }, [onClose]);
+
+    const handleRefresh = useCallback(() => {
+        if (iframeRef.current) {
+            // For cross-origin iframes we cannot access contentWindow.location,
+            // but we *can* reset the src from the parent side to trigger a reload.
+            iframeRef.current.src = meetingUrl;
+        }
+    }, [meetingUrl]);
 
     if (!isOpen) {
         return null;
@@ -195,6 +195,24 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                     <span style={{fontSize: '14px', fontWeight: 600}}>{'Meeting Active'}</span>
                 </div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                    {/* Refresh button - visible in both states, mainly useful when expanded */}
+                    <button
+                        onClick={handleRefresh}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '6px',
+                            borderRadius: '4px',
+                            color: 'rgba(var(--center-channel-color-rgb), 0.7)',
+                        }}
+                        title='Refresh meeting'
+                    >
+                        <i
+                            className='icon icon-refresh'
+                            style={{fontSize: '16px'}}
+                        />
+                    </button>
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
                         style={{
@@ -208,8 +226,8 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                         title={isExpanded ? 'Minimize' : 'Expand'}
                     >
                         <i
-                            className={`icon ${isExpanded ? 'icon-window-minimize' : 'icon-window-maximize'}`}
-                            style={{fontSize: '16px'}}
+                            className={`icon ${isExpanded ? 'icon-chevron-down' : 'icon-arrow-expand'}`}
+                            style={{fontSize: '18px', fontWeight: 'bold'}}
                         />
                     </button>
                     <button
@@ -230,6 +248,31 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                     </button>
                 </div>
             </div>
+
+            {/* Always render iframe but control visibility - never unmount to prevent reload */}
+            {meetingUrl && (
+                <iframe
+                    ref={iframeRef}
+                    src={meetingUrl}
+                    style={{
+                        width: '100%',
+                        height: isExpanded ? 'calc(100vh - 60px)' : '0px',
+                        border: 'none',
+                        borderRadius: '0',
+                        opacity: isExpanded ? 1 : 0,
+                        pointerEvents: isExpanded ? 'auto' : 'none',
+                        transition: 'height 0.3s ease, opacity 0.3s ease',
+                        position: isExpanded ? 'fixed' : 'absolute',
+                        top: isExpanded ? '60px' : '0',
+                        left: isExpanded ? '0' : '0',
+                        zIndex: isExpanded ? 99998 : -1,
+                        visibility: isExpanded ? 'visible' : 'hidden',
+                    }}
+                    allow='camera; microphone; display-capture; autoplay; encrypted-media; fullscreen; clipboard-read; clipboard-write; geolocation; payment; usb; serial; xr-spatial-tracking; accelerometer; gyroscope; magnetometer; picture-in-picture; web-share'
+                    allowFullScreen={true}
+                    title='Daakia Meeting'
+                />
+            )}
 
             {/* Compact View - Controls */}
             {!isExpanded && (
@@ -313,9 +356,9 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                             />
                         </button>
 
-                        {/* Go to Meeting Button */}
+                        {/* Expand Button */}
                         <button
-                            onClick={handleGoToMeeting}
+                            onClick={() => setIsExpanded(true)}
                             style={{
                                 width: '28px',
                                 height: '28px',
@@ -328,10 +371,10 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                                 background: 'rgba(var(--button-bg-rgb), 0.1)',
                                 color: 'rgb(var(--button-bg-rgb))',
                             }}
-                            title='Go to Meeting'
+                            title='Expand Meeting'
                         >
                             <i
-                                className='icon icon-open-in-new'
+                                className='icon icon-window-maximize'
                                 style={{fontSize: '12px'}}
                             />
                         </button>
@@ -357,44 +400,6 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                                 className='icon icon-phone-hangup'
                                 style={{fontSize: '12px'}}
                             />
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Expanded View */}
-            {isExpanded && (
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        height: 'calc(100vh - 60px)',
-                        fontSize: '18px',
-                        color: 'rgba(var(--center-channel-color-rgb), 0.7)',
-                    }}
-                >
-                    <div style={{textAlign: 'center'}}>
-                        <i
-                            className='icon icon-video'
-                            style={{fontSize: '48px', marginBottom: '16px', display: 'block'}}
-                        />
-                        <div>{'Meeting is running in another tab'}</div>
-                        <button
-                            onClick={handleGoToMeeting}
-                            style={{
-                                marginTop: '16px',
-                                padding: '12px 24px',
-                                background: 'rgb(var(--button-bg-rgb))',
-                                color: 'var(--button-color)',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                fontWeight: 600,
-                            }}
-                        >
-                            {isExpanded ? 'Minimize' : 'Go to Meeting'}
                         </button>
                     </div>
                 </div>

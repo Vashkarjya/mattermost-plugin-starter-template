@@ -38,6 +38,11 @@ type PersonalRoomURLResponse struct {
 	} `json:"data"`
 }
 
+// DaakiaTokenResponse represents a minimal response containing the Daakia JWT token
+type DaakiaTokenResponse struct {
+	Token string `json:"token"`
+}
+
 // handleGetPersonalRoomURL gets personal meeting room URL from Daakia backend
 // Frontend sends: is_corporate_ac and business_account_id in query params
 func (p *Plugin) handleGetPersonalRoomURL(w http.ResponseWriter, r *http.Request) {
@@ -133,6 +138,46 @@ func (p *Plugin) handleGetPersonalRoomURL(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		p.API.LogError("Failed to encode response", "error", err.Error())
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleGetDaakiaToken exposes the Daakia JWT token stored in the Mattermost user props.
+// This is intended for the webapp to pass the token into the Daakia iframe via postMessage.
+func (p *Plugin) handleGetDaakiaToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Header.Get("Mattermost-User-ID")
+	if userID == "" {
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, appErr := p.API.GetUser(userID)
+	if appErr != nil {
+		http.Error(w, "Failed to get user", http.StatusInternalServerError)
+		return
+	}
+
+	daakiaToken := ""
+	if user.Props != nil {
+		if token, ok := user.Props["daakia_jwt_token"]; ok {
+			daakiaToken = token
+		}
+	}
+
+	if daakiaToken == "" {
+		http.Error(w, "Daakia token not found in user properties", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(DaakiaTokenResponse{Token: daakiaToken}); err != nil {
+		p.API.LogError("Failed to encode Daakia token response", "error", err.Error())
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}

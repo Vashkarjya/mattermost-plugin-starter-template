@@ -24,6 +24,9 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 	apiRouter.HandleFunc("/meeting/personal-room-url", p.handleGetPersonalRoomURL).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/meeting/create-post", p.handleCreateCallPost).Methods(http.MethodPost)
 
+	// Daakia token API endpoint - exposes the Daakia JWT stored in user props
+	apiRouter.HandleFunc("/daakia/token", p.handleGetDaakiaToken).Methods(http.MethodGet)
+
 	router.ServeHTTP(w, r)
 }
 

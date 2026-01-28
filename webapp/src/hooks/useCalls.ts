@@ -1,6 +1,6 @@
 import type {Store, Action} from 'redux';
 
-import {createCallPost, endCall, getPersonalMeetingRoomUrl} from '../services/meetingUrlService';
+import {startCall as startCallService, endCall} from '../services/meetingUrlService';
 import type {GlobalState, CallData, WebSocketEvent, WindowWithDaakia} from '../types';
 
 // Call state management
@@ -16,40 +16,19 @@ export async function startCall(channelId: string) {
             detail: {channelId, loading: true},
         }));
 
-        // Get meeting URL from backend
-        const meetingResult = await getPersonalMeetingRoomUrl();
-
-        if (!meetingResult.success || !meetingResult.meetingUrl) {
-            // eslint-disable-next-line no-console
-            console.error('Failed to get meeting URL:', meetingResult.error);
-
-            // Clear loading state
-            window.dispatchEvent(new CustomEvent('daakia-call-loading', {
-                detail: {channelId, loading: false},
-            }));
-            return;
-        }
-
-        // Create call post with real meeting URL
-        const result = await createCallPost({
-            channelId,
-            meetingUrl: meetingResult.meetingUrl,
-        });
+        // Use orchestrated service function
+        const result = await startCallService(channelId);
 
         // Clear loading state
         window.dispatchEvent(new CustomEvent('daakia-call-loading', {
             detail: {channelId, loading: false},
         }));
 
-        if (result.success) {
-            // Open meeting URL for the caller and show widget
-            const meetingWindow = window.open(meetingResult.meetingUrl, '_blank');
-
+        if (result.success && result.meetingUrl) {
             // Show widget with meeting info
             window.dispatchEvent(new CustomEvent('daakia-widget-open', {
                 detail: {
-                    meetingUrl: meetingResult.meetingUrl,
-                    meetingWindow,
+                    meetingUrl: result.meetingUrl,
                 },
             }));
         } else {
