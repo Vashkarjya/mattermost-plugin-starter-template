@@ -1,4 +1,12 @@
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useMemo} from 'react';
+
+import {
+    getMeetingOrigin,
+    sendToggleMic,
+    sendToggleCamera,
+    sendHelloFromMattermost,
+    createDaakiaMessageListener,
+} from './integrations';
 
 import './call_widget.scss';
 
@@ -22,6 +30,8 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
     const [isMicOn, setIsMicOn] = useState(false);
     const [isCameraOn, setIsCameraOn] = useState(false);
     const [isUpdatingFromRemote, setIsUpdatingFromRemote] = useState(false);
+
+    const meetingOrigin = useMemo(() => getMeetingOrigin(meetingUrl), [meetingUrl]);
 
     const onMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -58,88 +68,56 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
         };
     }, [dragging, onMouseMove, onMouseUp]);
 
-    // Listen for messages from meeting window
     React.useEffect(() => {
-        const handleMessage = (event: MessageEvent) => {
-            // Accept messages from https://stag-web.daakia.co.in
-            if (event.origin !== 'https://stag-web.daakia.co.in') {
-                return;
-            }
-
-            if (event.data.type === 'MIC_TOGGLE') {
+        const handleMessage = createDaakiaMessageListener({
+            onMicToggle: (isOn) => {
                 setIsUpdatingFromRemote(true);
-                setIsMicOn(event.data.isOn);
+                setIsMicOn(isOn);
                 setTimeout(() => setIsUpdatingFromRemote(false), 100);
-            }
-            if (event.data.type === 'CAMERA_TOGGLE') {
+            },
+            onCameraToggle: (isOn) => {
                 setIsUpdatingFromRemote(true);
-                setIsCameraOn(event.data.isOn);
+                setIsCameraOn(isOn);
                 setTimeout(() => setIsUpdatingFromRemote(false), 100);
-            }
-        };
-
+            },
+        });
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
     }, []);
 
     const handleMicToggle = useCallback(() => {
-        if (isUpdatingFromRemote || !meetingWindow || meetingWindow.closed) {
+        if (isUpdatingFromRemote || !meetingOrigin || !meetingWindow || meetingWindow.closed) {
             return;
         }
-
         const newMicState = !isMicOn;
-
-        // Update local state immediately
         setIsMicOn(newMicState);
-
-        meetingWindow.postMessage({
-            type: 'TOGGLE_MIC',
-            isOn: newMicState,
-            timestamp: Date.now(),
-        }, 'https://stag-web.daakia.co.in');
-    }, [meetingWindow, isMicOn, isUpdatingFromRemote]);
+        sendToggleMic(meetingWindow, meetingOrigin, newMicState);
+    }, [meetingOrigin, meetingWindow, isMicOn, isUpdatingFromRemote]);
 
     const handleCameraToggle = useCallback(() => {
-        if (isUpdatingFromRemote || !meetingWindow || meetingWindow.closed) {
+        if (isUpdatingFromRemote || !meetingOrigin || !meetingWindow || meetingWindow.closed) {
             return;
         }
-
         const newCameraState = !isCameraOn;
-
-        // Update local state immediately
         setIsCameraOn(newCameraState);
-
-        meetingWindow.postMessage({
-            type: 'TOGGLE_CAMERA',
-            isOn: newCameraState,
-            timestamp: Date.now(),
-        }, 'https://stag-web.daakia.co.in');
-    }, [meetingWindow, isCameraOn, isUpdatingFromRemote]);
+        sendToggleCamera(meetingWindow, meetingOrigin, newCameraState);
+    }, [meetingOrigin, meetingWindow, isCameraOn, isUpdatingFromRemote]);
 
     const handleSendMessage = useCallback(() => {
-        if (meetingWindow && !meetingWindow.closed) {
-            meetingWindow.postMessage({
-                type: 'HELLO_FROM_MATTERMOST',
-                message: 'Hello World from Mattermost Plugin!',
-                timestamp: Date.now(),
-            }, 'https://stag-web.daakia.co.in');
+        if (!meetingOrigin || !meetingWindow || meetingWindow.closed) {
+            return;
         }
-    }, [meetingWindow]);
+        sendHelloFromMattermost(meetingWindow, meetingOrigin);
+    }, [meetingOrigin, meetingWindow]);
 
     const handleGoToMeeting = useCallback(() => {
-        if (meetingWindow && !meetingWindow.closed) {
+        if (meetingOrigin && meetingWindow && !meetingWindow.closed) {
             meetingWindow.focus();
-
-            // Send hello world message to meeting window
-            meetingWindow.postMessage({
-                type: 'HELLO_FROM_MATTERMOST',
-                message: 'Hello World from Mattermost Plugin!',
-                timestamp: Date.now(),
-            }, 'https://stag-web.daakia.co.in');
+            sendHelloFromMattermost(meetingWindow, meetingOrigin);
         } else {
             window.open(meetingUrl, '_blank');
         }
-    }, [meetingUrl, meetingWindow]);
+    }, [meetingUrl, meetingOrigin, meetingWindow]);
 
     const handleClose = useCallback(() => {
         setIsExpanded(false);
