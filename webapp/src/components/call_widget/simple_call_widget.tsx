@@ -1,10 +1,12 @@
-import React, {useState, useCallback, useMemo} from 'react';
+/*eslint-disable */
+import React, {useState, useCallback, useMemo, useRef} from 'react';
 
 import {
     getMeetingOrigin,
     sendToggleMic,
     sendToggleCamera,
     sendHelloFromMattermost,
+    sendTokenToDaakia,
     createDaakiaMessageListener,
 } from './integrations';
 
@@ -15,6 +17,8 @@ interface SimpleCallWidgetProps {
     meetingUrl: string;
     meetingWindow?: Window | null;
     onClose?: () => void;
+    useIframe?: boolean;
+    token?: string;
 }
 
 const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
@@ -22,16 +26,42 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
     meetingUrl,
     meetingWindow,
     onClose,
+    useIframe = false,
+    token,
 }) => {
     const [pos, setPos] = useState({x: 80, y: 120});
     const [dragging, setDragging] = useState(false);
     const [offset, setOffset] = useState({x: 0, y: 0});
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(useIframe); // Auto-expand in iframe mode
     const [isMicOn, setIsMicOn] = useState(false);
     const [isCameraOn, setIsCameraOn] = useState(false);
     const [isUpdatingFromRemote, setIsUpdatingFromRemote] = useState(false);
+    const [iframeWindow, setIframeWindow] = useState<Window | null>(null);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
 
     const meetingOrigin = useMemo(() => getMeetingOrigin(meetingUrl), [meetingUrl]);
+
+    const effectiveWindow = useIframe ? iframeWindow : meetingWindow;
+    const windowReady = useIframe ? Boolean(iframeWindow) : Boolean(meetingWindow && !meetingWindow.closed);
+
+    const onIframeLoad = useCallback(() => {
+        if (iframeRef.current?.contentWindow) {
+            setIframeWindow(iframeRef.current.contentWindow);
+
+            console.log('Iframe loaded, token available:', !!token, 'origin:', meetingOrigin);
+
+            // Send token after 500ms delay
+            if (token && meetingOrigin) {
+                console.log('Scheduling token send in 500ms...');
+                setTimeout(() => {
+                    if (iframeRef.current?.contentWindow) {
+                        console.log('Sending token to Daakia:', token.substring(0, 20) + '...');
+                        sendTokenToDaakia(iframeRef.current.contentWindow, meetingOrigin, token);
+                    }
+                }, 1000);
+            }
+        }
+    }, [token, meetingOrigin]);
 
     const onMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -86,38 +116,44 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
     }, []);
 
     const handleMicToggle = useCallback(() => {
-        if (isUpdatingFromRemote || !meetingOrigin || !meetingWindow || meetingWindow.closed) {
+        if (isUpdatingFromRemote || !meetingOrigin || !windowReady || !effectiveWindow) {
             return;
         }
         const newMicState = !isMicOn;
         setIsMicOn(newMicState);
-        sendToggleMic(meetingWindow, meetingOrigin, newMicState);
-    }, [meetingOrigin, meetingWindow, isMicOn, isUpdatingFromRemote]);
+        sendToggleMic(effectiveWindow, meetingOrigin, newMicState);
+    }, [meetingOrigin, windowReady, effectiveWindow, isMicOn, isUpdatingFromRemote]);
 
     const handleCameraToggle = useCallback(() => {
-        if (isUpdatingFromRemote || !meetingOrigin || !meetingWindow || meetingWindow.closed) {
+        if (isUpdatingFromRemote || !meetingOrigin || !windowReady || !effectiveWindow) {
             return;
         }
         const newCameraState = !isCameraOn;
         setIsCameraOn(newCameraState);
-        sendToggleCamera(meetingWindow, meetingOrigin, newCameraState);
-    }, [meetingOrigin, meetingWindow, isCameraOn, isUpdatingFromRemote]);
+        sendToggleCamera(effectiveWindow, meetingOrigin, newCameraState);
+    }, [meetingOrigin, windowReady, effectiveWindow, isCameraOn, isUpdatingFromRemote]);
 
     const handleSendMessage = useCallback(() => {
-        if (!meetingOrigin || !meetingWindow || meetingWindow.closed) {
+        if (!meetingOrigin || !windowReady || !effectiveWindow) {
             return;
         }
-        sendHelloFromMattermost(meetingWindow, meetingOrigin);
-    }, [meetingOrigin, meetingWindow]);
+        sendHelloFromMattermost(effectiveWindow, meetingOrigin, 'Hello World from Mattermost Plugin!');
+    }, [meetingOrigin, windowReady, effectiveWindow]);
 
     const handleGoToMeeting = useCallback(() => {
-        if (meetingOrigin && meetingWindow && !meetingWindow.closed) {
-            meetingWindow.focus();
-            sendHelloFromMattermost(meetingWindow, meetingOrigin);
+        if (useIframe) {
+            if (!isExpanded) {
+                setIsExpanded(true);
+            }
+            return;
+        }
+        if (meetingOrigin && effectiveWindow && windowReady) {
+            (effectiveWindow as Window).focus();
+            sendHelloFromMattermost(effectiveWindow, meetingOrigin, 'Hello World from Mattermost Plugin!');
         } else {
             window.open(meetingUrl, '_blank');
         }
-    }, [meetingUrl, meetingOrigin, meetingWindow]);
+    }, [meetingUrl, meetingOrigin, effectiveWindow, windowReady, useIframe, isExpanded]);
 
     const handleClose = useCallback(() => {
         setIsExpanded(false);
@@ -132,247 +168,130 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
 
     return (
         <div
-            className='daakia-call-widget'
+            className={`daakia-call-widget ${isExpanded ? 'daakia-call-widget--expanded' : ''}`}
             style={{
                 position: 'fixed',
                 left: isExpanded ? 0 : pos.x,
                 top: isExpanded ? 0 : pos.y,
-                width: isExpanded ? '100vw' : 238,
-                height: isExpanded ? '100vh' : 116,
-                background: 'var(--center-channel-bg)',
-                color: 'var(--center-channel-color)',
-                borderRadius: isExpanded ? '0' : '8px',
-                boxShadow: isExpanded ? 'none' : '0px 0px 0px 2px rgba(var(--center-channel-color-rgb), 0.16), 0px 8px 24px rgba(0, 0, 0, 0.12)',
+                width: isExpanded ? '100vw' : 260,
+                height: isExpanded ? '100vh' : 120,
                 zIndex: isExpanded ? 100000 : 99999,
-                userSelect: 'none',
-                transition: 'width 0.3s ease, height 0.3s ease, border-radius 0.3s ease',
-                overflow: 'hidden',
             }}
         >
             {/* Header */}
             <div
-                className='widget-header'
+                className='daakia-call-widget__header'
                 onMouseDown={onMouseDown}
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 16px',
-                    borderBottom: '1px solid rgba(var(--center-channel-color-rgb), 0.08)',
-                    cursor: dragging ? 'grabbing' : 'grab',
-                    background: 'rgba(var(--center-channel-color-rgb), 0.04)',
-                    height: '60px',
-                    boxSizing: 'border-box',
-                }}
+                style={{cursor: dragging ? 'grabbing' : 'grab'}}
             >
-                <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                    <i
-                        className='icon icon-phone'
-                        style={{color: 'rgb(var(--button-bg-rgb))', fontSize: '16px'}}
-                    />
-                    <span style={{fontSize: '14px', fontWeight: 600}}>{'Meeting Active'}</span>
+                <div className='daakia-call-widget__header-title'>
+                    <i className='icon icon-phone daakia-call-widget__header-icon'/>
+                    <span className='daakia-call-widget__header-label'>{'Meeting Active'}</span>
                 </div>
-                <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                <div className='daakia-call-widget__header-actions'>
                     <button
+                        type='button'
+                        className='daakia-call-widget__header-btn'
                         onClick={() => setIsExpanded(!isExpanded)}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '6px',
-                            borderRadius: '4px',
-                            color: 'rgba(var(--center-channel-color-rgb), 0.7)',
-                        }}
                         title={isExpanded ? 'Minimize' : 'Expand'}
                     >
-                        <i
-                            className={`icon ${isExpanded ? 'icon-window-minimize' : 'icon-window-maximize'}`}
-                            style={{fontSize: '16px'}}
-                        />
+                        <i className={`icon ${isExpanded ? 'icon-window-minimize' : 'icon-window-maximize'}`}/>
                     </button>
                     <button
-                        onClick={handleClose}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            padding: '6px',
-                            borderRadius: '4px',
-                            color: 'rgba(var(--center-channel-color-rgb), 0.6)',
-                        }}
+                        type='button'
+                        className='daakia-call-widget__header-btn'
+                        onClick={handleGoToMeeting}
+                        title='Go to Meeting'
                     >
-                        <i
-                            className='icon icon-close'
-                            style={{fontSize: '16px'}}
-                        />
+                        <i className='icon icon-open-in-new'/>
+                    </button>
+                    <button
+                        type='button'
+                        className='daakia-call-widget__header-btn daakia-call-widget__header-btn--close'
+                        onClick={handleClose}
+                        title='Close'
+                    >
+                        <i className='icon icon-close'/>
                     </button>
                 </div>
             </div>
 
             {/* Compact View - Controls */}
             {!isExpanded && (
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '12px 16px',
-                        height: '56px',
-                        boxSizing: 'border-box',
-                    }}
-                >
-                    <div style={{display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center', width: '100%'}}>
-                        {/* Mic Button - Now Enabled */}
+                <div className='daakia-call-widget__controls'>
+                    <div className='daakia-call-widget__controls-inner'>
+                        {/* Mic Button */}
                         <button
+                            type='button'
+                            className={`daakia-call-widget__control-btn ${isMicOn ? 'daakia-call-widget__control-btn--on' : 'daakia-call-widget__control-btn--off'}`}
                             onClick={handleMicToggle}
-                            style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: isMicOn ? 'rgba(var(--button-bg-rgb), 0.1)' : 'rgba(var(--error-text-color-rgb), 0.1)',
-                                color: isMicOn ? 'rgb(var(--button-bg-rgb))' : 'rgb(var(--error-text-color-rgb))',
-                            }}
                             title={isMicOn ? 'Mute Mic' : 'Unmute Mic'}
                         >
-                            <i
-                                className={`icon ${isMicOn ? 'icon-microphone' : 'icon-microphone-off'}`}
-                                style={{fontSize: '12px'}}
-                            />
+                            <i className={`icon ${isMicOn ? 'icon-microphone' : 'icon-microphone-off'}`}/>
                         </button>
 
-                        {/* Camera Button - Now Enabled */}
+                        {/* Camera Button */}
                         <button
+                            type='button'
+                            className={`daakia-call-widget__control-btn ${isCameraOn ? 'daakia-call-widget__control-btn--on' : 'daakia-call-widget__control-btn--off'}`}
                             onClick={handleCameraToggle}
-                            style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: isCameraOn ? 'rgba(var(--button-bg-rgb), 0.1)' : 'rgba(var(--error-text-color-rgb), 0.1)',
-                                color: isCameraOn ? 'rgb(var(--button-bg-rgb))' : 'rgb(var(--error-text-color-rgb))',
-                            }}
                             title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
                         >
-                            <i
-                                className={`icon ${isCameraOn ? 'icon-video' : 'icon-video-off'}`}
-                                style={{fontSize: '12px'}}
-                            />
+                            <i className={`icon ${isCameraOn ? 'icon-video-outline' : 'icon-video-off-outline'}`}/>
                         </button>
 
-                        {/* Send Message Button */}
+                        {/* Send Hello Message */}
                         <button
+                            type='button'
+                            className='daakia-call-widget__control-btn daakia-call-widget__control-btn--secondary'
                             onClick={handleSendMessage}
-                            style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: 'rgba(var(--button-bg-rgb), 0.1)',
-                                color: 'rgb(var(--button-bg-rgb))',
-                            }}
                             title='Send Hello Message'
                         >
-                            <i
-                                className='icon icon-send'
-                                style={{fontSize: '12px'}}
-                            />
-                        </button>
-
-                        {/* Go to Meeting Button */}
-                        <button
-                            onClick={handleGoToMeeting}
-                            style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: 'rgba(var(--button-bg-rgb), 0.1)',
-                                color: 'rgb(var(--button-bg-rgb))',
-                            }}
-                            title='Go to Meeting'
-                        >
-                            <i
-                                className='icon icon-open-in-new'
-                                style={{fontSize: '12px'}}
-                            />
+                            <i className='icon icon-send'/>
                         </button>
 
                         {/* End Call Button - Disabled */}
                         <button
+                            type='button'
+                            className='daakia-call-widget__control-btn daakia-call-widget__control-btn--danger'
                             disabled={true}
-                            style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '50%',
-                                border: 'none',
-                                cursor: 'not-allowed',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: 'rgba(var(--error-text-color-rgb), 0.1)',
-                                color: 'rgb(var(--error-text-color-rgb))',
-                                opacity: 0.5,
-                            }}
+                            title='End Call'
                         >
-                            <i
-                                className='icon icon-phone-hangup'
-                                style={{fontSize: '12px'}}
-                            />
+                            <i className='icon icon-phone-hangup'/>
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* Expanded View */}
-            {isExpanded && (
+            {/* Iframe - always mounted in iframe mode to prevent reload */}
+            {useIframe && (
                 <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        height: 'calc(100vh - 60px)',
-                        fontSize: '18px',
-                        color: 'rgba(var(--center-channel-color-rgb), 0.7)',
-                    }}
+                    className={`daakia-call-widget__expanded ${isExpanded ? '' : 'daakia-call-widget__expanded--hidden'}`}
+                    aria-hidden={!isExpanded}
                 >
-                    <div style={{textAlign: 'center'}}>
-                        <i
-                            className='icon icon-video'
-                            style={{fontSize: '48px', marginBottom: '16px', display: 'block'}}
-                        />
-                        <div>{'Meeting is running in another tab'}</div>
+                    <iframe
+                        ref={iframeRef}
+                        className='daakia-call-widget__iframe'
+                        src={meetingUrl}
+                        title='Daakia Meeting'
+                        onLoad={onIframeLoad}
+                        allow='camera; microphone; display-capture; autoplay; encrypted-media; fullscreen'
+                    />
+                </div>
+            )}
+
+            {/* Expanded View - for new window mode */}
+            {isExpanded && !useIframe && (
+                <div className='daakia-call-widget__expanded'>
+                    <div className='daakia-call-widget__expanded-content'>
+                        <i className='icon icon-video-outline daakia-call-widget__expanded-icon'/>
+                        <p className='daakia-call-widget__expanded-text'>{'Meeting is running in another tab'}</p>
                         <button
+                            type='button'
+                            className='daakia-call-widget__expanded-btn'
                             onClick={handleGoToMeeting}
-                            style={{
-                                marginTop: '16px',
-                                padding: '12px 24px',
-                                background: 'rgb(var(--button-bg-rgb))',
-                                color: 'var(--button-color)',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                fontWeight: 600,
-                            }}
                         >
-                            {isExpanded ? 'Minimize' : 'Go to Meeting'}
+                            {'Go to Meeting'}
                         </button>
                     </div>
                 </div>

@@ -9,24 +9,10 @@ const CallPost: React.FC<{post: Post}> = ({post}) => {
 
     const handleJoinCall = () => {
         if (meetingUrl) {
-            const meetingWindow = window.open(meetingUrl, '_blank');
-
-            // Send hello world message after opening
-            setTimeout(() => {
-                if (meetingWindow && !meetingWindow.closed) {
-                    meetingWindow.postMessage({
-                        type: 'HELLO_FROM_MATTERMOST',
-                        message: 'Hello World from Mattermost Plugin!',
-                        timestamp: Date.now(),
-                    }, 'http://localhost:3000');
-                }
-            }, 2000); // Wait 2 seconds for page to load
-
-            // Show widget when joining from post
+            // Only show widget, don't open new window
             window.dispatchEvent(new CustomEvent('daakia-join-call', {
                 detail: {
                     meetingUrl,
-                    meetingWindow,
                 },
             }));
         }

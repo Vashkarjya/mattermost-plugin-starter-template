@@ -6,6 +6,7 @@ interface WidgetState {
     isOpen: boolean;
     meetingUrl?: string;
     meetingWindow?: Window | null;
+    token?: string;
 }
 
 const CallWidgetContainer = () => {
@@ -20,6 +21,7 @@ const CallWidgetContainer = () => {
                 isOpen: true,
                 meetingUrl: detail.meetingUrl,
                 meetingWindow: detail.meetingWindow,
+                token: detail.token,
             });
         };
 
@@ -28,18 +30,20 @@ const CallWidgetContainer = () => {
                 isOpen: false,
                 meetingUrl: undefined,
                 meetingWindow: null,
+                token: undefined,
             });
         };
 
         // Listen for join call event (from call posts or incoming calls)
         const handleJoinCall = (event: CustomEvent) => {
-            const {meetingUrl} = event.detail || {};
+            const {meetingUrl, token} = event.detail || {};
             if (meetingUrl) {
-                const meetingWindow = window.open(meetingUrl, '_blank');
+                // Don't open new window in iframe mode
                 setWidgetState({
                     isOpen: true,
                     meetingUrl,
-                    meetingWindow,
+                    meetingWindow: null, // No external window in iframe mode
+                    token,
                 });
             }
         };
@@ -60,6 +64,7 @@ const CallWidgetContainer = () => {
             isOpen: false,
             meetingUrl: undefined,
             meetingWindow: null,
+            token: undefined,
         });
         window.dispatchEvent(new Event('daakia-widget-close'));
     };
@@ -74,6 +79,8 @@ const CallWidgetContainer = () => {
             meetingUrl={widgetState.meetingUrl}
             meetingWindow={widgetState.meetingWindow}
             onClose={handleClose}
+            useIframe={true}
+            token={widgetState.token}
         />
     );
 };

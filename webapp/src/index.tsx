@@ -46,14 +46,14 @@ export default class Plugin {
 
         // Subscribe to WebSocket events
         registry.registerWebSocketEventHandler(
-            'custom_com.daakia.calls_call_started',
+            'custom_com.daakia.calls-v2_call_started',
             (event) => {
                 handleCallStarted(event, store);
             },
         );
 
         registry.registerWebSocketEventHandler(
-            'custom_com.daakia.calls_call_ended',
+            'custom_com.daakia.calls-v2_call_ended',
             (event) => {
                 handleCallEnded(event);
             },

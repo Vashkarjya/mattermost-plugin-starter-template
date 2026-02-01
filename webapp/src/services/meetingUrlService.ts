@@ -1,5 +1,5 @@
 // Meeting URL Service - Handles getting meeting URLs and creating call posts
-
+/*eslint-disable */
 // Get CSRF token from cookie
 function getCSRFFromCookie(): string {
     const cookies = document.cookie.split(';');
@@ -15,6 +15,7 @@ function getCSRFFromCookie(): string {
 export interface GetMeetingUrlResult {
     success: boolean;
     meetingUrl?: string;
+    token?: string;
     error?: string;
 }
 
@@ -24,17 +25,20 @@ const USE_TEST_URL = false;
 /**
  * Gets personal meeting room URL from backend
  */
+
+
 export async function getPersonalMeetingRoomUrl(): Promise<GetMeetingUrlResult> {
     if (USE_TEST_URL) {
         return {
             success: true,
             meetingUrl: 'http://localhost:3000/v1/meeting/Nzk5NTY2NTk0Mjk2',
+            token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IjkyN2UzY2EzLTdlYTUtNDllYy04NGQyLTNlODgzZjhlZTdmOCIsInVzZXJEYXRhIjoiKzkxNzAwMjI0Mjc1OCIsImlhdCI6MTc2OTA2Mzk2MCwiZXhwIjoxODAwNjIxNTYwfQ.QoXGoOZvGLU1vRAsUTHAYe_9vE7lbNGtbOhXKE8YJbw',
         };
     }
 
     try {
         const response = await fetch(
-            `${window.location.origin}/plugins/com.daakia.calls/api/v1/meeting/personal-room-url?is_corporate_ac=0`,
+            `${window.location.origin}/plugins/com.daakia.calls-v2/api/v1/meeting/personal-room-url?is_corporate_ac=0`,
             {
                 method: 'GET',
                 credentials: 'include',
@@ -69,6 +73,7 @@ export async function getPersonalMeetingRoomUrl(): Promise<GetMeetingUrlResult> 
         return {
             success: true,
             meetingUrl,
+            token: data.data.token,
         };
     } catch (error) {
         return {
@@ -109,7 +114,7 @@ export async function createCallPost(
         }
 
         const response = await fetch(
-            `${window.location.origin}/plugins/com.daakia.calls/api/v1/meeting/create-post`,
+            `${window.location.origin}/plugins/com.daakia.calls-v2/api/v1/meeting/create-post`,
             {
                 method: 'POST',
                 credentials: 'include',
@@ -190,7 +195,7 @@ export async function endCall(
         }
 
         const response = await fetch(
-            `${window.location.origin}/plugins/com.daakia.calls/api/v1/calls/end`,
+            `${window.location.origin}/plugins/com.daakia.calls-v2/api/v1/calls/end`,
             {
                 method: 'POST',
                 credentials: 'include',

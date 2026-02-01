@@ -42,14 +42,11 @@ export async function startCall(channelId: string) {
         }));
 
         if (result.success) {
-            // Open meeting URL for the caller and show widget
-            const meetingWindow = window.open(meetingResult.meetingUrl, '_blank');
-
-            // Show widget with meeting info
+            // Show widget with meeting info and token
             window.dispatchEvent(new CustomEvent('daakia-widget-open', {
                 detail: {
                     meetingUrl: meetingResult.meetingUrl,
-                    meetingWindow,
+                    token: meetingResult.token,
                 },
             }));
         } else {

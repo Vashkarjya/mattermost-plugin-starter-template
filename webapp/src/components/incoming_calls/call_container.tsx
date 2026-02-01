@@ -58,15 +58,12 @@ const IncomingCallContainer = () => {
         // Force re-render and notify components
         window.dispatchEvent(new Event('daakia-call-answered'));
 
-        // Open meeting URL in new window and show widget
+        // Open meeting URL and show widget
         if (meetingUrl) {
-            const meetingWindow = window.open(meetingUrl, '_blank');
-            
-            // Show widget when answering call
+            // Show widget when answering call (no new window in iframe mode)
             window.dispatchEvent(new CustomEvent('daakia-widget-open', {
                 detail: {
                     meetingUrl,
-                    meetingWindow,
                 },
             }));
         } else {

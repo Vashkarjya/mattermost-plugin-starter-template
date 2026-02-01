@@ -35,6 +35,7 @@ type PersonalRoomURLResponse struct {
 	Data    struct {
 		RoomUID     string `json:"room_uid"`
 		FrontendURL string `json:"frontend_url"`
+		Token       string `json:"token"`
 	} `json:"data"`
 }
 
@@ -129,6 +130,7 @@ func (p *Plugin) handleGetPersonalRoomURL(w http.ResponseWriter, r *http.Request
 	}
 	response.Data.RoomUID = encodedRoomUID
 	response.Data.FrontendURL = daakiaFrontendURL
+	response.Data.Token = daakiaToken
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {

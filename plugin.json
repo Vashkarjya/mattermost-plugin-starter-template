@@ -1,6 +1,6 @@
 {
-    "id": "com.daakia.calls",
-    "name": "Daakia Calls",
+    "id": "com.daakia.calls-v2",
+    "name": "Daakia Calls V2",
     "description": "Simple calling plugin with ringing notifications",
     "homepage_url": "https://github.com/daakia/mattermost-plugin-calls",
     "support_url": "https://github.com/daakia/mattermost-plugin-calls/issues",

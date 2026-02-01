@@ -53,6 +53,24 @@ export function sendToggleCamera(
     );
 }
 
+/** Send token to Daakia when iframe loads. */
+export function sendTokenToDaakia(
+    meetingWindow: Window,
+    meetingOrigin: string,
+    token: string,
+): void {
+    console.log('Sending TOKEN_FROM_MATTERMOST to origin:', meetingOrigin);
+    meetingWindow.postMessage(
+        {
+            source: POSTMESSAGE_SOURCE_CALL_WIDGET,
+            type: 'TOKEN_FROM_MATTERMOST',
+            token,
+            timestamp: Date.now(),
+        },
+        meetingOrigin,
+    );
+}
+
 /** Send HELLO_FROM_MATTERMOST to Daakia (e.g. on "Go to meeting" or "Send message"). */
 export function sendHelloFromMattermost(
     meetingWindow: Window,
