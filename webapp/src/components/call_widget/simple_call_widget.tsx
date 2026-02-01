@@ -6,7 +6,6 @@ import {
     sendToggleMic,
     sendToggleCamera,
     sendHelloFromMattermost,
-    sendTokenToDaakia,
     createDaakiaMessageListener,
 } from './integrations';
 
@@ -47,21 +46,8 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
     const onIframeLoad = useCallback(() => {
         if (iframeRef.current?.contentWindow) {
             setIframeWindow(iframeRef.current.contentWindow);
-
-            console.log('Iframe loaded, token available:', !!token, 'origin:', meetingOrigin);
-
-            // Send token after 500ms delay
-            if (token && meetingOrigin) {
-                console.log('Scheduling token send in 500ms...');
-                setTimeout(() => {
-                    if (iframeRef.current?.contentWindow) {
-                        console.log('Sending token to Daakia:', token.substring(0, 20) + '...');
-                        sendTokenToDaakia(iframeRef.current.contentWindow, meetingOrigin, token);
-                    }
-                }, 1000);
-            }
         }
-    }, [token, meetingOrigin]);
+    }, []);
 
     const onMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -98,22 +84,29 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
         };
     }, [dragging, onMouseMove, onMouseUp]);
 
+    // Single listener: controls (mic/camera) + Konnect verify/token. Daakia asks for token; we reply with stored token.
     React.useEffect(() => {
-        const handleMessage = createDaakiaMessageListener({
-            onMicToggle: (isOn) => {
-                setIsUpdatingFromRemote(true);
-                setIsMicOn(isOn);
-                setTimeout(() => setIsUpdatingFromRemote(false), 100);
+        const handleMessage = createDaakiaMessageListener(
+            {
+                onMicToggle: (isOn) => {
+                    setIsUpdatingFromRemote(true);
+                    setIsMicOn(isOn);
+                    setTimeout(() => setIsUpdatingFromRemote(false), 100);
+                },
+                onCameraToggle: (isOn) => {
+                    setIsUpdatingFromRemote(true);
+                    setIsCameraOn(isOn);
+                    setTimeout(() => setIsUpdatingFromRemote(false), 100);
+                },
             },
-            onCameraToggle: (isOn) => {
-                setIsUpdatingFromRemote(true);
-                setIsCameraOn(isOn);
-                setTimeout(() => setIsUpdatingFromRemote(false), 100);
+            {
+                getToken: () => token,
+                onVerified: undefined,
             },
-        });
+        );
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, []);
+    }, [token]);
 
     const handleMicToggle = useCallback(() => {
         if (isUpdatingFromRemote || !meetingOrigin || !windowReady || !effectiveWindow) {
@@ -191,20 +184,22 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                 <div className='daakia-call-widget__header-actions'>
                     <button
                         type='button'
-                        className='daakia-call-widget__header-btn'
+                        className='daakia-call-widget__header-btn daakia-call-widget__header-btn--expand'
                         onClick={() => setIsExpanded(!isExpanded)}
                         title={isExpanded ? 'Minimize' : 'Expand'}
                     >
-                        <i className={`icon ${isExpanded ? 'icon-window-minimize' : 'icon-window-maximize'}`}/>
+                        <i className={`icon daakia-call-widget__expand-icon ${isExpanded ? 'icon-arrow-collapse' : 'icon-arrow-expand'}`}/>
                     </button>
-                    <button
-                        type='button'
-                        className='daakia-call-widget__header-btn'
-                        onClick={handleGoToMeeting}
-                        title='Go to Meeting'
-                    >
-                        <i className='icon icon-open-in-new'/>
-                    </button>
+                    {!useIframe && (
+                        <button
+                            type='button'
+                            className='daakia-call-widget__header-btn'
+                            onClick={handleGoToMeeting}
+                            title='Go to Meeting'
+                        >
+                            <i className='icon icon-open-in-new'/>
+                        </button>
+                    )}
                     <button
                         type='button'
                         className='daakia-call-widget__header-btn daakia-call-widget__header-btn--close'

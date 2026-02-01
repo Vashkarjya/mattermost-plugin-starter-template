@@ -1,5 +1,6 @@
 import type {Store, Action} from 'redux';
 
+import {USE_IFRAME_MODE} from '../constants';
 import {
     createCallPost,
     endCall,
@@ -85,10 +86,13 @@ export async function startCall(channelId: string, teamName?: string) {
             return;
         }
 
+        const meetingUrl = meetingResult.meetingUrl;
+        const meetingWindow = USE_IFRAME_MODE ? undefined : window.open(meetingUrl, '_blank');
         window.dispatchEvent(new CustomEvent('daakia-widget-open', {
             detail: {
-                meetingUrl: meetingResult.meetingUrl,
+                meetingUrl,
                 token,
+                meetingWindow: meetingWindow ?? null,
             },
         }));
     } catch (error) {

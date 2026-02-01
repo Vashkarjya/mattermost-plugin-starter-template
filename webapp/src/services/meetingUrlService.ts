@@ -45,6 +45,9 @@ export interface GetPersonalMeetingRoomUrlParams {
 // Toggle between test URL and API call
 const USE_TEST_URL = false;
 
+/** Token sent to Daakia in test mode (no real API call). */
+const TEST_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IjkyN2UzY2EzLTdlYTUtNDllYy04NGQyLTNlODgzZjhlZTdmOCIsInVzZXJEYXRhIjoiKzkxNzAwMjI0Mjc1OCIsImlhdCI6MTc2OTk3MzY2OCwiZXhwIjoxODAxNTMxMjY4fQ.Plj0QXdQ8t0eleUwnvS2PIF1zZTl_x-BRLT0R6Y9bVA';
+
 const PLUGIN_API_BASE = `${window.location.origin}/plugins/com.daakia.calls-v2/api/v1`;
 
 /**
@@ -104,8 +107,12 @@ export interface GetDaakiaTokenResult {
 /**
  * Gets the current user's Daakia JWT from the plugin.
  * Used when starting a call, joining from a post, or picking up so the widget can pass it to the iframe.
+ * In test mode (USE_TEST_URL), returns TEST_TOKEN without calling the API.
  */
 export async function getDaakiaToken(): Promise<GetDaakiaTokenResult> {
+    if (USE_TEST_URL) {
+        return {success: true, token: TEST_TOKEN};
+    }
     try {
         const response = await fetch(`${PLUGIN_API_BASE}/meeting/daakia-token`, {
             method: 'GET',
@@ -152,7 +159,7 @@ export async function getPersonalMeetingRoomUrl(params?: GetPersonalMeetingRoomU
         return {
             success: true,
             meetingUrl: 'http://localhost:3000/v1/meeting/Nzk5NTY2NTk0Mjk2',
-            token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IjkyN2UzY2EzLTdlYTUtNDllYy04NGQyLTNlODgzZjhlZTdmOCIsInVzZXJEYXRhIjoiKzkxNzAwMjI0Mjc1OCIsImlhdCI6MTc2OTA2Mzk2MCwiZXhwIjoxODAwNjIxNTYwfQ.QoXGoOZvGLU1vRAsUTHAYe_9vE7lbNGtbOhXKE8YJbw',
+            // No token in test mode — not needed for local/dev testing
         };
     }
 

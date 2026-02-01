@@ -68,6 +68,13 @@
         font-size: 18px;
     }
 
+    &--expand .daakia-call-widget__expand-icon,
+    &--expand .icon {
+        font-size: 18px;
+        display: inline-block;
+        color: inherit;
+    }
+
     &:hover {
         background: rgba(var(--center-channel-color-rgb), 0.1);
         color: rgba(var(--center-channel-color-rgb), 0.9);

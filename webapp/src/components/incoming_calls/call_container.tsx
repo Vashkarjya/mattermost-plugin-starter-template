@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 
 import IncomingCallNotification from './incoming_call_notification';
 
+import {USE_IFRAME_MODE} from '../../constants';
 import {getDaakiaToken} from '../../services/meetingUrlService';
 
 interface IncomingCallData {
@@ -69,10 +70,12 @@ const IncomingCallContainer = () => {
         // Get user token (same API as start/join) and open widget
         const tokenResult = await getDaakiaToken();
         const token = tokenResult.success ? tokenResult.token : undefined;
+        const meetingWindow = USE_IFRAME_MODE ? undefined : window.open(meetingUrl, '_blank');
         window.dispatchEvent(new CustomEvent('daakia-widget-open', {
             detail: {
                 meetingUrl,
                 token,
+                meetingWindow: meetingWindow ?? null,
             },
         }));
     };

@@ -2,6 +2,8 @@ import React, {useState, useEffect} from 'react';
 
 import SimpleCallWidget from './simple_call_widget';
 
+import {USE_IFRAME_MODE} from '../../constants';
+
 interface WidgetState {
     isOpen: boolean;
     meetingUrl?: string;
@@ -36,13 +38,12 @@ const CallWidgetContainer = () => {
 
         // Listen for join call event (from call posts or incoming calls)
         const handleJoinCall = (event: CustomEvent) => {
-            const {meetingUrl, token} = event.detail || {};
+            const {meetingUrl, token, meetingWindow} = event.detail || {};
             if (meetingUrl) {
-                // Don't open new window in iframe mode
                 setWidgetState({
                     isOpen: true,
                     meetingUrl,
-                    meetingWindow: null, // No external window in iframe mode
+                    meetingWindow: meetingWindow ?? null,
                     token,
                 });
             }
@@ -79,7 +80,7 @@ const CallWidgetContainer = () => {
             meetingUrl={widgetState.meetingUrl}
             meetingWindow={widgetState.meetingWindow}
             onClose={handleClose}
-            useIframe={true}
+            useIframe={USE_IFRAME_MODE}
             token={widgetState.token}
         />
     );

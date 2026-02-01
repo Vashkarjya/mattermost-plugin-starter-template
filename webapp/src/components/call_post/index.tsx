@@ -2,6 +2,7 @@ import React from 'react';
 
 import type {Post} from '@mattermost/types/posts';
 
+import {USE_IFRAME_MODE} from '../../constants';
 import {getDaakiaToken} from '../../services/meetingUrlService';
 
 import './call_post.scss';
@@ -15,10 +16,12 @@ const CallPost: React.FC<{post: Post}> = ({post}) => {
         }
         const tokenResult = await getDaakiaToken();
         const token = tokenResult.success ? tokenResult.token : undefined;
+        const meetingWindow = USE_IFRAME_MODE ? undefined : window.open(meetingUrl, '_blank');
         window.dispatchEvent(new CustomEvent('daakia-join-call', {
             detail: {
                 meetingUrl,
                 token,
+                meetingWindow: meetingWindow ?? null,
             },
         }));
     };
