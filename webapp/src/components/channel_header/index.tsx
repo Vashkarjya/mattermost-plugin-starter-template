@@ -13,7 +13,7 @@ const ChannelHeaderButton: React.FC<ChannelHeaderButtonProps> = ({channel}) => {
 
     useEffect(() => {
         if (!channel?.id) {
-            return;
+            return () => {};
         }
 
         // Listen for call started events
