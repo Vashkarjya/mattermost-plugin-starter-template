@@ -2,20 +2,25 @@ import React from 'react';
 
 import type {Post} from '@mattermost/types/posts';
 
+import {getDaakiaToken} from '../../services/meetingUrlService';
+
 import './call_post.scss';
 
 const CallPost: React.FC<{post: Post}> = ({post}) => {
     const meetingUrl = post.props?.meeting_url as string;
 
-    const handleJoinCall = () => {
-        if (meetingUrl) {
-            // Only show widget, don't open new window
-            window.dispatchEvent(new CustomEvent('daakia-join-call', {
-                detail: {
-                    meetingUrl,
-                },
-            }));
+    const handleJoinCall = async () => {
+        if (!meetingUrl) {
+            return;
         }
+        const tokenResult = await getDaakiaToken();
+        const token = tokenResult.success ? tokenResult.token : undefined;
+        window.dispatchEvent(new CustomEvent('daakia-join-call', {
+            detail: {
+                meetingUrl,
+                token,
+            },
+        }));
     };
 
     // Use standard post-message structure to inherit ALL modern post styling

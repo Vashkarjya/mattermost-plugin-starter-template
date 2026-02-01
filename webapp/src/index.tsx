@@ -25,12 +25,8 @@ export default class Plugin {
                     const currentTeam = (state as any).entities?.teams?.teams?.[(state as any).entities?.teams?.currentTeamId];
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const teamName = currentTeam?.display_name || currentTeam?.name;
-                    if (!teamName) {
-                        // eslint-disable-next-line no-console
-                        console.error('Team name not found - cannot determine business account');
-                        return;
-                    }
-                    startCall(channel.id);
+                    const nameToUse = teamName || currentTeam?.name || '';
+                    startCall(channel.id, nameToUse || undefined);
                 }
             },
         );

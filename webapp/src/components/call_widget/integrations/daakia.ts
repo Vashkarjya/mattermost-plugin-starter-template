@@ -59,7 +59,6 @@ export function sendTokenToDaakia(
     meetingOrigin: string,
     token: string,
 ): void {
-    console.log('Sending TOKEN_FROM_MATTERMOST to origin:', meetingOrigin);
     meetingWindow.postMessage(
         {
             source: POSTMESSAGE_SOURCE_CALL_WIDGET,

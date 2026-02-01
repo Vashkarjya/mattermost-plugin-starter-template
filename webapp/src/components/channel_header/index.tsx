@@ -12,31 +12,43 @@ const ChannelHeaderButton: React.FC<ChannelHeaderButtonProps> = ({channel}) => {
     const [hasActiveCall, setHasActiveCall] = useState(false);
 
     useEffect(() => {
-        if (!channel?.id) {
-            return () => {};
-        }
+        const channelId = channel?.id ?? (channel as {channel_id?: string})?.channel_id;
 
-        // Listen for call started events
+        // Listen for call started events (only when we know the channel)
         const handleCallStarted = (event: Event) => {
+            if (!channelId) {
+                return;
+            }
             const customEvent = event as CustomEvent;
-            if (customEvent.detail?.channel_id === channel.id) {
+            if (customEvent.detail?.channel_id === channelId) {
                 setHasActiveCall(true);
             }
         };
 
-        // Listen for call ended events
+        // Listen for call ended events (only when we know the channel)
         const handleCallEnded = (event: Event) => {
+            if (!channelId) {
+                return;
+            }
             const customEvent = event as CustomEvent;
-            if (customEvent.detail?.channel_id === channel.id) {
+            if (customEvent.detail?.channel_id === channelId) {
                 setHasActiveCall(false);
             }
         };
 
-        // Listen for loading state from startCall
+        // Loading state during startCall (API 1 → 2 → 3). Always listen so loader shows even when Mattermost doesn't pass channel.
         const handleCallLoading = (event: Event) => {
-            const customEvent = event as CustomEvent;
-            if (customEvent.detail?.channelId === channel.id) {
-                setIsLoading(customEvent.detail?.loading || false);
+            const customEvent = event as CustomEvent<{channelId?: string; loading?: boolean}>;
+            const eventChannelId = customEvent.detail?.channelId;
+            const loading = Boolean(customEvent.detail?.loading);
+
+            // If we have both ids, only show loading when they match. Otherwise show loading for any event (single button in header).
+            if (channelId && eventChannelId) {
+                if (eventChannelId === channelId) {
+                    setIsLoading(loading);
+                }
+            } else {
+                setIsLoading(loading);
             }
         };
 

@@ -1,6 +1,13 @@
 import type {Store, Action} from 'redux';
 
-import {createCallPost, endCall, getPersonalMeetingRoomUrl} from '../services/meetingUrlService';
+import {
+    createCallPost,
+    endCall,
+    getBusinessAccounts,
+    getDaakiaToken,
+    getPersonalMeetingRoomUrl,
+    matchBusinessAccountIdByTeamName,
+} from '../services/meetingUrlService';
 import type {GlobalState, CallData, WebSocketEvent, WindowWithDaakia} from '../types';
 
 // Call state management
@@ -8,59 +15,86 @@ let activeCall: CallData | null = null;
 let ringingTimeout: NodeJS.Timeout | null = null;
 const RING_LENGTH = 30000; // 30 seconds
 
-// Main call functions
-export async function startCall(channelId: string) {
+/**
+ * Start-call API order (fail-fast: if one fails, we stop and don't call the next).
+ *
+ * API 1 — GET /api/v4/daakia/business-accounts (main Mattermost server)
+ *   → Optional: if it fails or empty, we still call API 2 with is_corporate_ac=0.
+ *
+ * API 2 — GET /plugins/.../api/v1/meeting/personal-room-url (plugin)
+ *   → Required. If it fails → stop, clear loading, return (don't call API 3).
+ *
+ * API 3 — GET /plugins/.../api/v1/meeting/daakia-token (plugin)
+ *   → Token for widget/iframe; we use this API only (no token from API 2).
+ *
+ * API 4 — POST /plugins/.../api/v1/meeting/create-post (plugin)
+ *   → Required. If it fails → stop, clear loading, return (don't open widget).
+ *
+ * Then: dispatch daakia-widget-open with meetingUrl + token (from API 3 only).
+ */
+function clearCallLoading(channelId: string): void {
+    window.dispatchEvent(new CustomEvent('daakia-call-loading', {
+        detail: {channelId, loading: false},
+    }));
+}
+
+export async function startCall(channelId: string, teamName?: string) {
     try {
-        // Dispatch loading state
         window.dispatchEvent(new CustomEvent('daakia-call-loading', {
             detail: {channelId, loading: true},
         }));
 
-        // Get meeting URL from backend
-        const meetingResult = await getPersonalMeetingRoomUrl();
+        // ——— API 1: business accounts (optional; fallback to is_corporate_ac=0 if fail/empty) ———
+        let businessAccountId: number | undefined;
+        const accountsResponse = await getBusinessAccounts();
+        if (accountsResponse?.success === 1 && accountsResponse.data?.length) {
+            if (teamName) {
+                const matchedId = matchBusinessAccountIdByTeamName(accountsResponse.data, teamName);
+                businessAccountId = matchedId ?? accountsResponse.data[0].id;
+            } else {
+                businessAccountId = accountsResponse.data[0].id;
+            }
+        }
 
+        const personalRoomParams = (businessAccountId != null && businessAccountId > 0) ? {is_corporate_ac: '1' as const, business_account_id: businessAccountId} : undefined;
+
+        // ——— API 2: personal room URL (required; fail-fast if this fails) ———
+        const meetingResult = await getPersonalMeetingRoomUrl(personalRoomParams);
         if (!meetingResult.success || !meetingResult.meetingUrl) {
             // eslint-disable-next-line no-console
             console.error('Failed to get meeting URL:', meetingResult.error);
-
-            // Clear loading state
-            window.dispatchEvent(new CustomEvent('daakia-call-loading', {
-                detail: {channelId, loading: false},
-            }));
+            clearCallLoading(channelId);
             return;
         }
 
-        // Create call post with real meeting URL
+        // ——— API 3: Daakia JWT token (for widget/iframe; from this API only) ———
+        const tokenResult = await getDaakiaToken();
+        const token = tokenResult.success ? tokenResult.token : undefined;
+
+        // ——— API 4: create call post (required; fail-fast if this fails) ———
         const result = await createCallPost({
             channelId,
             meetingUrl: meetingResult.meetingUrl,
         });
 
-        // Clear loading state
-        window.dispatchEvent(new CustomEvent('daakia-call-loading', {
-            detail: {channelId, loading: false},
-        }));
+        clearCallLoading(channelId);
 
-        if (result.success) {
-            // Show widget with meeting info and token
-            window.dispatchEvent(new CustomEvent('daakia-widget-open', {
-                detail: {
-                    meetingUrl: meetingResult.meetingUrl,
-                    token: meetingResult.token,
-                },
-            }));
-        } else {
+        if (!result.success) {
             // eslint-disable-next-line no-console
             console.error('Failed to start call:', result.error);
+            return;
         }
+
+        window.dispatchEvent(new CustomEvent('daakia-widget-open', {
+            detail: {
+                meetingUrl: meetingResult.meetingUrl,
+                token,
+            },
+        }));
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error starting call:', error);
-
-        // Clear loading state on error
-        window.dispatchEvent(new CustomEvent('daakia-call-loading', {
-            detail: {channelId, loading: false},
-        }));
+        clearCallLoading(channelId);
     }
 }
 

@@ -4,29 +4,30 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/mattermost/mattermost-plugin-starter-template/server/routes"
 	"github.com/mattermost/mattermost/server/public/plugin"
 )
 
-// ServeHTTP demonstrates a plugin that handles HTTP requests by greeting the world.
-// The root URL is currently <siteUrl>/plugins/com.mattermost.plugin-starter-template/api/v1/. Replace com.mattermost.plugin-starter-template with the plugin ID.
+// ServeHTTP handles HTTP requests for the plugin. All API routes are registered
+// in server/routes and handlers live in controller_*.go files.
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
 	router := mux.NewRouter()
-
-	// Middleware to require that the user is logged in
 	router.Use(p.MattermostAuthorizationRequired)
 
 	apiRouter := router.PathPrefix("/api/v1").Subrouter()
-
-	apiRouter.HandleFunc("/hello", p.HelloWorld).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/calls/end", p.handleEndCall).Methods(http.MethodPost)
-
-	// Meeting room API endpoints
-	apiRouter.HandleFunc("/meeting/personal-room-url", p.handleGetPersonalRoomURL).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/meeting/create-post", p.handleCreateCallPost).Methods(http.MethodPost)
+	routes.Register(apiRouter, &routes.Handlers{
+		HelloWorld:                p.HelloWorld,
+		HandleStartCall:           p.HandleStartCall,
+		HandleEndCall:             p.HandleEndCall,
+		HandleGetPersonalRoomURL:  p.HandleGetPersonalRoomURL,
+		HandleGetDaakiaToken:      p.HandleGetDaakiaToken,
+		HandleCreateCallPost:      p.HandleCreateCallPost,
+	})
 
 	router.ServeHTTP(w, r)
 }
 
+// MattermostAuthorizationRequired ensures the request has a logged-in Mattermost user.
 func (p *Plugin) MattermostAuthorizationRequired(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := r.Header.Get("Mattermost-User-ID")
@@ -34,14 +35,6 @@ func (p *Plugin) MattermostAuthorizationRequired(next http.Handler) http.Handler
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
-
 		next.ServeHTTP(w, r)
 	})
-}
-
-func (p *Plugin) HelloWorld(w http.ResponseWriter, r *http.Request) {
-	if _, err := w.Write([]byte("Hello, world!")); err != nil {
-		p.API.LogError("Failed to write response", "error", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }

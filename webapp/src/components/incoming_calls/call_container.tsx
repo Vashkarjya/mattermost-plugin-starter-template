@@ -2,6 +2,8 @@ import React, {useEffect, useState} from 'react';
 
 import IncomingCallNotification from './incoming_call_notification';
 
+import {getDaakiaToken} from '../../services/meetingUrlService';
+
 interface IncomingCallData {
     callId: string;
     channelId: string;
@@ -43,7 +45,7 @@ const IncomingCallContainer = () => {
         return null;
     }
 
-    const handleAnswer = () => {
+    const handleAnswer = async () => {
         // Stop ringing sound immediately
         if ((window as any).daakiaStopRinging) {
             (window as any).daakiaStopRinging();
@@ -58,18 +60,21 @@ const IncomingCallContainer = () => {
         // Force re-render and notify components
         window.dispatchEvent(new Event('daakia-call-answered'));
 
-        // Open meeting URL and show widget
-        if (meetingUrl) {
-            // Show widget when answering call (no new window in iframe mode)
-            window.dispatchEvent(new CustomEvent('daakia-widget-open', {
-                detail: {
-                    meetingUrl,
-                },
-            }));
-        } else {
+        if (!meetingUrl) {
             // eslint-disable-next-line no-console
             console.error('No meeting URL available for incoming call');
+            return;
         }
+
+        // Get user token (same API as start/join) and open widget
+        const tokenResult = await getDaakiaToken();
+        const token = tokenResult.success ? tokenResult.token : undefined;
+        window.dispatchEvent(new CustomEvent('daakia-widget-open', {
+            detail: {
+                meetingUrl,
+                token,
+            },
+        }));
     };
 
     const handleDecline = () => {
