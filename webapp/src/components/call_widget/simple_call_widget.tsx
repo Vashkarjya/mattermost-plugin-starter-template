@@ -6,6 +6,7 @@ import {
     sendToggleMic,
     sendToggleCamera,
     sendHelloFromMattermost,
+    sendEndCall,
     createDaakiaMessageListener,
 } from './integrations';
 
@@ -98,6 +99,13 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                     setIsCameraOn(isOn);
                     setTimeout(() => setIsUpdatingFromRemote(false), 100);
                 },
+                onEndCall: () => {
+                    if (!useIframe && meetingWindow && !meetingWindow.closed) {
+                        meetingWindow.close();
+                    }
+                    window.focus();
+                    onClose?.();
+                },
             },
             {
                 getToken: () => token,
@@ -106,7 +114,20 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
         );
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [token]);
+    }, [token, onClose]);
+
+    // When open-in-window mode: if user closes the meeting tab/window, close the widget too
+    React.useEffect(() => {
+        if (useIframe || !meetingWindow) {
+            return;
+        }
+        const interval = setInterval(() => {
+            if (meetingWindow.closed) {
+                onClose?.();
+            }
+        }, 500);
+        return () => clearInterval(interval);
+    }, [useIframe, meetingWindow, onClose]);
 
     const handleMicToggle = useCallback(() => {
         if (isUpdatingFromRemote || !meetingOrigin || !windowReady || !effectiveWindow) {
@@ -126,12 +147,21 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
         sendToggleCamera(effectiveWindow, meetingOrigin, newCameraState);
     }, [meetingOrigin, windowReady, effectiveWindow, isCameraOn, isUpdatingFromRemote]);
 
-    const handleSendMessage = useCallback(() => {
+    const closeMeetingWindowAndWidget = useCallback(() => {
+        if (!useIframe && meetingWindow && !meetingWindow.closed) {
+            meetingWindow.close();
+        }
+        window.focus();
+        onClose?.();
+    }, [useIframe, meetingWindow, onClose]);
+
+    const handleEndCall = useCallback(() => {
         if (!meetingOrigin || !windowReady || !effectiveWindow) {
             return;
         }
-        sendHelloFromMattermost(effectiveWindow, meetingOrigin, 'Hello World from Mattermost Plugin!');
-    }, [meetingOrigin, windowReady, effectiveWindow]);
+        sendEndCall(effectiveWindow, meetingOrigin, 'end');
+        closeMeetingWindowAndWidget();
+    }, [meetingOrigin, windowReady, effectiveWindow, closeMeetingWindowAndWidget]);
 
     const handleGoToMeeting = useCallback(() => {
         if (useIframe) {
@@ -150,10 +180,11 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
 
     const handleClose = useCallback(() => {
         setIsExpanded(false);
-        if (onClose) {
-            onClose();
+        if (meetingOrigin && effectiveWindow && !effectiveWindow.closed) {
+            sendEndCall(effectiveWindow, meetingOrigin, 'end');
         }
-    }, [onClose]);
+        closeMeetingWindowAndWidget();
+    }, [meetingOrigin, effectiveWindow, closeMeetingWindowAndWidget]);
 
     if (!isOpen) {
         return null;
@@ -182,14 +213,16 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                     <span className='daakia-call-widget__header-label'>{'Meeting Active'}</span>
                 </div>
                 <div className='daakia-call-widget__header-actions'>
-                    <button
-                        type='button'
-                        className='daakia-call-widget__header-btn daakia-call-widget__header-btn--expand'
-                        onClick={() => setIsExpanded(!isExpanded)}
-                        title={isExpanded ? 'Minimize' : 'Expand'}
-                    >
-                        <i className={`icon daakia-call-widget__expand-icon ${isExpanded ? 'icon-arrow-collapse' : 'icon-arrow-expand'}`}/>
-                    </button>
+                    {useIframe && (
+                        <button
+                            type='button'
+                            className='daakia-call-widget__header-btn daakia-call-widget__header-btn--expand'
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            title={isExpanded ? 'Minimize' : 'Expand'}
+                        >
+                            <i className={`icon daakia-call-widget__expand-icon ${isExpanded ? 'icon-arrow-collapse' : 'icon-arrow-expand'}`}/>
+                        </button>
+                    )}
                     {!useIframe && (
                         <button
                             type='button'
@@ -235,21 +268,11 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                             <i className={`icon ${isCameraOn ? 'icon-video-outline' : 'icon-video-off-outline'}`}/>
                         </button>
 
-                        {/* Send Hello Message */}
-                        <button
-                            type='button'
-                            className='daakia-call-widget__control-btn daakia-call-widget__control-btn--secondary'
-                            onClick={handleSendMessage}
-                            title='Send Hello Message'
-                        >
-                            <i className='icon icon-send'/>
-                        </button>
-
-                        {/* End Call Button - Disabled */}
+                        {/* End Call Button */}
                         <button
                             type='button'
                             className='daakia-call-widget__control-btn daakia-call-widget__control-btn--danger'
-                            disabled={true}
+                            onClick={handleEndCall}
                             title='End Call'
                         >
                             <i className='icon icon-phone-hangup'/>

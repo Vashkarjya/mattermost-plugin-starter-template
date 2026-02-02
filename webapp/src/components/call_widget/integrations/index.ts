@@ -4,6 +4,7 @@ export {
     sendToggleCamera,
     sendHelloFromMattermost,
     sendTokenToDaakia,
+    sendEndCall,
     createDaakiaMessageListener,
     DAAKIA_INCOMING,
 } from './daakia';

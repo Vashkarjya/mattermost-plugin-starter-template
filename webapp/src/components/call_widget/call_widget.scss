@@ -162,8 +162,14 @@
     &--danger {
         background: rgba(var(--error-text-color-rgb), 0.1);
         color: rgb(var(--error-text-color-rgb));
-        opacity: 0.6;
-        cursor: not-allowed;
+    }
+
+    &--danger:hover:not(:disabled) {
+        background: rgba(var(--error-text-color-rgb), 0.22);
+    }
+
+    &--danger:active:not(:disabled) {
+        background: rgba(var(--error-text-color-rgb), 0.28);
     }
 }
 

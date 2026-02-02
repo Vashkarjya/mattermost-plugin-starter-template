@@ -107,6 +107,23 @@ export function sendHelloFromMattermost(
     );
 }
 
+/** Send END_CALL to Daakia. */
+export function sendEndCall(
+    meetingWindow: Window,
+    meetingOrigin: string,
+    endType: 'leave' | 'end' | 'removed' = 'end',
+): void {
+    meetingWindow.postMessage(
+        {
+            source: POSTMESSAGE_SOURCE_CALL_WIDGET,
+            type: 'END_CALL',
+            endType,
+            timestamp: Date.now(),
+        },
+        meetingOrigin,
+    );
+}
+
 // =============================================================================
 // RECEIVING (Daakia meeting tab → Widget)
 // =============================================================================
@@ -115,6 +132,7 @@ export function sendHelloFromMattermost(
 export const DAAKIA_INCOMING = {
     MIC_TOGGLE: 'MIC_TOGGLE',
     CAMERA_TOGGLE: 'CAMERA_TOGGLE',
+    END_CALL: 'END_CALL',
 } as const;
 
 export type DaakiaIncomingType = typeof DAAKIA_INCOMING[keyof typeof DAAKIA_INCOMING];
@@ -123,6 +141,7 @@ export type DaakiaIncomingType = typeof DAAKIA_INCOMING[keyof typeof DAAKIA_INCO
 export interface DaakiaIncomingCallbacks {
     onMicToggle?: (isOn: boolean) => void;
     onCameraToggle?: (isOn: boolean) => void;
+    onEndCall?: () => void;
 }
 
 /** Options for Konnect verification / token: when Daakia asks, we reply with stored token. */
@@ -166,6 +185,10 @@ export function createDaakiaMessageListener(
         }
         case DAAKIA_INCOMING.CAMERA_TOGGLE: {
             callbacks.onCameraToggle?.(Boolean(data.isOn));
+            break;
+        }
+        case DAAKIA_INCOMING.END_CALL: {
+            callbacks.onEndCall?.();
             break;
         }
         case DAAKIA_VERIFY_KONNECT: {

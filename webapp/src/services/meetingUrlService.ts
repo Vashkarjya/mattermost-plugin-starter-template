@@ -43,7 +43,7 @@ export interface GetPersonalMeetingRoomUrlParams {
 }
 
 // Toggle between test URL and API call
-const USE_TEST_URL = false;
+const USE_TEST_URL = true;
 
 /** Token sent to Daakia in test mode (no real API call). */
 const TEST_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IjkyN2UzY2EzLTdlYTUtNDllYy04NGQyLTNlODgzZjhlZTdmOCIsInVzZXJEYXRhIjoiKzkxNzAwMjI0Mjc1OCIsImlhdCI6MTc2OTk3MzY2OCwiZXhwIjoxODAxNTMxMjY4fQ.Plj0QXdQ8t0eleUwnvS2PIF1zZTl_x-BRLT0R6Y9bVA';
@@ -158,7 +158,7 @@ export async function getPersonalMeetingRoomUrl(params?: GetPersonalMeetingRoomU
     if (USE_TEST_URL) {
         return {
             success: true,
-            meetingUrl: 'http://localhost:3000/v1/meeting/Nzk5NTY2NTk0Mjk2',
+            meetingUrl: 'http://localhost:3000/v1/meeting/NDk4NjgwODE5NDE1',
             // No token in test mode — not needed for local/dev testing
         };
     }

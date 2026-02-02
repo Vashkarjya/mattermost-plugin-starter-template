@@ -8,7 +8,7 @@ export const CALL_POST_TYPE = 'custom_daakia_call';
  * false = meeting opens in a new browser tab/window.
  * Change this to toggle between iframe and "open in window" mode.
  */
-export const USE_IFRAME_MODE = true;
+export const USE_IFRAME_MODE = false;
 
 /** Allowed postMessage origins (widget ↔ meeting tab). */
 export const ALLOWED_POSTMESSAGE_ORIGINS = new Set([
