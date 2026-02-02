@@ -9,6 +9,7 @@ import {
     sendEndCall,
     createDaakiaMessageListener,
 } from './integrations';
+import {playConnectedSound} from '../../utils/sounds';
 
 import './call_widget.scss';
 
@@ -36,6 +37,7 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
     const [isMicOn, setIsMicOn] = useState(false);
     const [isCameraOn, setIsCameraOn] = useState(false);
     const [isUpdatingFromRemote, setIsUpdatingFromRemote] = useState(false);
+    const [isVideoConfReady, setIsVideoConfReady] = useState(false);
     const [iframeWindow, setIframeWindow] = useState<Window | null>(null);
     const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -85,7 +87,7 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
         };
     }, [dragging, onMouseMove, onMouseUp]);
 
-    // Single listener: controls (mic/camera) + Konnect verify/token. Daakia asks for token; we reply with stored token.
+    // Single listener: controls (mic/camera) + Konnect verify/token + video conf ready. Daakia asks for token; we reply with stored token.
     React.useEffect(() => {
         const handleMessage = createDaakiaMessageListener(
             {
@@ -105,6 +107,10 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
                     }
                     window.focus();
                     onClose?.();
+                },
+                onVideoConfReady: () => {
+                    setIsVideoConfReady(true);
+                    playConnectedSound();
                 },
             },
             {
@@ -129,23 +135,25 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
         return () => clearInterval(interval);
     }, [useIframe, meetingWindow, onClose]);
 
+    const controlsDisabled = !isVideoConfReady;
+
     const handleMicToggle = useCallback(() => {
-        if (isUpdatingFromRemote || !meetingOrigin || !windowReady || !effectiveWindow) {
+        if (controlsDisabled || isUpdatingFromRemote || !meetingOrigin || !windowReady || !effectiveWindow) {
             return;
         }
         const newMicState = !isMicOn;
         setIsMicOn(newMicState);
         sendToggleMic(effectiveWindow, meetingOrigin, newMicState);
-    }, [meetingOrigin, windowReady, effectiveWindow, isMicOn, isUpdatingFromRemote]);
+    }, [controlsDisabled, meetingOrigin, windowReady, effectiveWindow, isMicOn, isUpdatingFromRemote]);
 
     const handleCameraToggle = useCallback(() => {
-        if (isUpdatingFromRemote || !meetingOrigin || !windowReady || !effectiveWindow) {
+        if (controlsDisabled || isUpdatingFromRemote || !meetingOrigin || !windowReady || !effectiveWindow) {
             return;
         }
         const newCameraState = !isCameraOn;
         setIsCameraOn(newCameraState);
         sendToggleCamera(effectiveWindow, meetingOrigin, newCameraState);
-    }, [meetingOrigin, windowReady, effectiveWindow, isCameraOn, isUpdatingFromRemote]);
+    }, [controlsDisabled, meetingOrigin, windowReady, effectiveWindow, isCameraOn, isUpdatingFromRemote]);
 
     const closeMeetingWindowAndWidget = useCallback(() => {
         if (!useIframe && meetingWindow && !meetingWindow.closed) {
@@ -156,12 +164,12 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
     }, [useIframe, meetingWindow, onClose]);
 
     const handleEndCall = useCallback(() => {
-        if (!meetingOrigin || !windowReady || !effectiveWindow) {
+        if (controlsDisabled || !meetingOrigin || !windowReady || !effectiveWindow) {
             return;
         }
         sendEndCall(effectiveWindow, meetingOrigin, 'end');
         closeMeetingWindowAndWidget();
-    }, [meetingOrigin, windowReady, effectiveWindow, closeMeetingWindowAndWidget]);
+    }, [controlsDisabled, meetingOrigin, windowReady, effectiveWindow, closeMeetingWindowAndWidget]);
 
     const handleGoToMeeting = useCallback(() => {
         if (useIframe) {
@@ -248,32 +256,35 @@ const SimpleCallWidget: React.FC<SimpleCallWidgetProps> = ({
             {!isExpanded && (
                 <div className='daakia-call-widget__controls'>
                     <div className='daakia-call-widget__controls-inner'>
-                        {/* Mic Button */}
+                        {/* Mic Button - disabled until video conf ready */}
                         <button
                             type='button'
                             className={`daakia-call-widget__control-btn ${isMicOn ? 'daakia-call-widget__control-btn--on' : 'daakia-call-widget__control-btn--off'}`}
                             onClick={handleMicToggle}
-                            title={isMicOn ? 'Mute Mic' : 'Unmute Mic'}
+                            title={controlsDisabled ? 'Connecting…' : (isMicOn ? 'Mute Mic' : 'Unmute Mic')}
+                            disabled={controlsDisabled}
                         >
                             <i className={`icon ${isMicOn ? 'icon-microphone' : 'icon-microphone-off'}`}/>
                         </button>
 
-                        {/* Camera Button */}
+                        {/* Camera Button - disabled until video conf ready */}
                         <button
                             type='button'
                             className={`daakia-call-widget__control-btn ${isCameraOn ? 'daakia-call-widget__control-btn--on' : 'daakia-call-widget__control-btn--off'}`}
                             onClick={handleCameraToggle}
-                            title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
+                            title={controlsDisabled ? 'Connecting…' : (isCameraOn ? 'Turn Off Camera' : 'Turn On Camera')}
+                            disabled={controlsDisabled}
                         >
                             <i className={`icon ${isCameraOn ? 'icon-video-outline' : 'icon-video-off-outline'}`}/>
                         </button>
 
-                        {/* End Call Button */}
+                        {/* End Call Button - disabled until video conf ready */}
                         <button
                             type='button'
                             className='daakia-call-widget__control-btn daakia-call-widget__control-btn--danger'
                             onClick={handleEndCall}
-                            title='End Call'
+                            title={controlsDisabled ? 'Connecting…' : 'End Call'}
+                            disabled={controlsDisabled}
                         >
                             <i className='icon icon-phone-hangup'/>
                         </button>

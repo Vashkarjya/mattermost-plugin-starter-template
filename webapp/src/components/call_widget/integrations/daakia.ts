@@ -133,6 +133,9 @@ export const DAAKIA_INCOMING = {
     MIC_TOGGLE: 'MIC_TOGGLE',
     CAMERA_TOGGLE: 'CAMERA_TOGGLE',
     END_CALL: 'END_CALL',
+
+    /** Daakia sends this when the video conferencing page is ready / user is connected. */
+    VIDEO_CONF_READY: 'VIDEO_CONF_READY',
 } as const;
 
 export type DaakiaIncomingType = typeof DAAKIA_INCOMING[keyof typeof DAAKIA_INCOMING];
@@ -142,6 +145,9 @@ export interface DaakiaIncomingCallbacks {
     onMicToggle?: (isOn: boolean) => void;
     onCameraToggle?: (isOn: boolean) => void;
     onEndCall?: () => void;
+
+    /** Called when Daakia sends VIDEO_CONF_READY (video conferencing page connected). */
+    onVideoConfReady?: () => void;
 }
 
 /** Options for Konnect verification / token: when Daakia asks, we reply with stored token. */
@@ -189,6 +195,10 @@ export function createDaakiaMessageListener(
         }
         case DAAKIA_INCOMING.END_CALL: {
             callbacks.onEndCall?.();
+            break;
+        }
+        case DAAKIA_INCOMING.VIDEO_CONF_READY: {
+            callbacks.onVideoConfReady?.();
             break;
         }
         case DAAKIA_VERIFY_KONNECT: {

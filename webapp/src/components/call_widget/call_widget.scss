@@ -171,6 +171,11 @@
     &--danger:active:not(:disabled) {
         background: rgba(var(--error-text-color-rgb), 0.28);
     }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 }
 
 /* Expanded view */

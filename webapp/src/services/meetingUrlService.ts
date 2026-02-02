@@ -158,7 +158,7 @@ export async function getPersonalMeetingRoomUrl(params?: GetPersonalMeetingRoomU
     if (USE_TEST_URL) {
         return {
             success: true,
-            meetingUrl: 'http://localhost:3000/v1/meeting/NDk4NjgwODE5NDE1',
+            meetingUrl: 'http://localhost:3000/v1/meeting/Nzk5NTY2NTk0Mjk2',
             // No token in test mode — not needed for local/dev testing
         };
     }
